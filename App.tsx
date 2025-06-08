@@ -8,16 +8,24 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, I18nManager, Platform } from "react-native";
+import { useEffect } from "react";
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
+  let [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_600SemiBold,
     Inter_700Bold,
   });
+
+  useEffect(() => {
+    if (Platform.OS === "ios") {
+      I18nManager.allowRTL(false);
+      I18nManager.forceRTL(false);
+    }
+  }, []);
 
   if (!fontsLoaded) {
     return (

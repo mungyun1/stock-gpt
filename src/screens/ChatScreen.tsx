@@ -70,7 +70,7 @@ const ChatScreen = () => {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.keyboardAvoidingView}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         {/* Header */}
         <View
@@ -104,13 +104,15 @@ const ChatScreen = () => {
           onContentSizeChange={() =>
             scrollViewRef.current?.scrollToEnd({ animated: true })
           }
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
         >
           {messages.length === 0 ? (
             <View style={styles.welcomeContainer}>
               <Text
                 style={[styles.welcomeText, { color: colors.textSecondary }]}
               >
-                투자 관련 질문을 남겨주세요!
+                어떤 투자 정보를 알고 싶으세요?
               </Text>
             </View>
           ) : (
@@ -203,10 +205,30 @@ const ChatScreen = () => {
               placeholder="무엇이든 물어보세요"
               placeholderTextColor={colors.textSecondary}
               multiline
+              textAlignVertical="center"
+              autoComplete="off"
+              autoCorrect={false}
+              autoCapitalize="none"
+              keyboardType="default"
+              returnKeyType="send"
+              textContentType="none"
+              autoFocus={false}
+              keyboardAppearance={
+                colors.background === "#000000" ? "dark" : "light"
+              }
+              onSubmitEditing={handleSend}
+              textAlign="left"
+              scrollEnabled={false}
+              blurOnSubmit={false}
             />
             <TouchableOpacity
               style={[
                 styles.sendButton,
+                {
+                  backgroundColor: message.trim()
+                    ? colors.accent
+                    : colors.cardBackground,
+                },
                 !message.trim() && styles.sendButtonDisabled,
               ]}
               onPress={handleSend}
@@ -215,7 +237,8 @@ const ChatScreen = () => {
               <Ionicons
                 name="send"
                 size={24}
-                color={message.trim() ? colors.accent : colors.textSecondary}
+                color={message.trim() ? "#FFFFFF" : colors.textSecondary}
+                style={{ transform: [{ rotate: "45deg" }] }}
               />
             </TouchableOpacity>
           </View>
@@ -255,7 +278,7 @@ const styles = StyleSheet.create({
     marginTop: 120,
   },
   welcomeText: {
-    fontSize: 28,
+    fontSize: 22,
     textAlign: "center",
     fontFamily: "Inter_400Regular",
     lineHeight: 36,
@@ -311,24 +334,45 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    borderRadius: 12,
+    alignItems: "center",
+    borderRadius: 20,
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: Platform.OS === "ios" ? 12 : 14,
     borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    backgroundColor: "#FFFFFF",
   },
   input: {
     flex: 1,
-    fontSize: 17,
+    fontSize: 16,
     maxHeight: 120,
+    minHeight: Platform.OS === "ios" ? 24 : "auto",
     marginRight: 12,
     fontFamily: "Inter_400Regular",
     lineHeight: 24,
-    paddingTop: 0,
-    paddingBottom: 0,
+    paddingTop: Platform.OS === "ios" ? 0 : 0,
+    paddingBottom: Platform.OS === "ios" ? 0 : 0,
   },
   sendButton: {
-    padding: 8,
+    padding: 10,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   sendButtonDisabled: {
     opacity: 0.5,

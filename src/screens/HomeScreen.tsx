@@ -120,7 +120,7 @@ const HomeScreen = () => {
                 { color: colors.textSecondary },
               ]}
             >
-              실시간 데이터와 AI 기술을 활용한 정확한 투자 분석
+              실시간 데이터와 AI 기술을 활용한 투자 분석
             </Text>
           </View>
 
