@@ -19,6 +19,7 @@ import {
 type RootStackParamList = {
   Home: undefined;
   Chat: undefined;
+  Calendar: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Home">;
@@ -48,7 +49,17 @@ const HomeScreen = () => {
         </View>
 
         {/* 기능 버튼 섹션 */}
-        <View style={styles.buttonContainer}>
+        <View
+          style={[
+            styles.buttonContainer,
+            {
+              backgroundColor: colors.cardBackground,
+              borderRadius: 20,
+              marginHorizontal: 24,
+              padding: 24,
+            },
+          ]}
+        >
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: colors.accent }]}
             onPress={() => navigation.navigate("Chat")}
@@ -61,21 +72,22 @@ const HomeScreen = () => {
             <TouchableOpacity
               style={[
                 styles.secondaryButton,
-                { backgroundColor: colors.cardBackground },
+                { backgroundColor: colors.background },
               ]}
+              onPress={() => navigation.navigate("Calendar")}
             >
-              <Ionicons name="briefcase" size={24} color={colors.accent} />
+              <Ionicons name="calendar" size={24} color={colors.accent} />
               <Text
                 style={[styles.secondaryButtonText, { color: colors.accent }]}
               >
-                포트폴리오
+                캘린더
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[
                 styles.secondaryButton,
-                { backgroundColor: colors.cardBackground },
+                { backgroundColor: colors.background },
               ]}
             >
               <FontAwesome5 name="globe" size={24} color={colors.accent} />
