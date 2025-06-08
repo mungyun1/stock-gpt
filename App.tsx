@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import HomeScreen from "./src/screens/HomeScreen";
 import ChatScreen from "./src/screens/ChatScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
+import MarketNewsScreen from "./src/screens/MarketNewsScreen";
 import {
   useFonts,
   Inter_400Regular,
@@ -49,6 +50,7 @@ export default function App() {
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
         <Stack.Screen name="Calendar" component={CalendarScreen} />
+        <Stack.Screen name="MarketNews" component={MarketNewsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
