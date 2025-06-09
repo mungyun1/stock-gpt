@@ -100,6 +100,7 @@ const ChatScreen = () => {
         {/* Chat Messages */}
         <ScrollView
           style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContentContainer}
           ref={scrollViewRef}
           onContentSizeChange={() =>
             scrollViewRef.current?.scrollToEnd({ animated: true })
@@ -269,13 +270,15 @@ const styles = StyleSheet.create({
   },
   messagesContainer: {
     flex: 1,
+  },
+  messagesContentContainer: {
+    flexGrow: 1,
     padding: 24,
   },
   welcomeContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 120,
   },
   welcomeText: {
     fontSize: 22,

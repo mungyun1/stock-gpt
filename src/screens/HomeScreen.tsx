@@ -180,7 +180,7 @@ const HomeScreen = () => {
                 <Text
                   style={[styles.modalTitle, { color: colors.textPrimary }]}
                 >
-                  주요 기능
+                  🛠️ 주요 기능
                 </Text>
                 <TouchableOpacity onPress={closeModal}>
                   <Ionicons
@@ -325,6 +325,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
+    height: "100%",
   },
   mainSection: {
     alignItems: "center",
@@ -333,7 +334,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: "25%",
   },
   header: {
     alignItems: "center",
