@@ -164,6 +164,7 @@ const HomeScreen = () => {
               styles.modalContent,
               {
                 opacity: fadeAnim,
+                backgroundColor: colors.cardBackground,
                 transform: [
                   {
                     translateY: fadeAnim.interpolate({
@@ -175,8 +176,21 @@ const HomeScreen = () => {
               },
             ]}
           >
-            <Pressable>
-              <View style={styles.modalHeader}>
+            <View
+              style={[
+                styles.modalContainer,
+                { backgroundColor: colors.cardBackground },
+              ]}
+            >
+              <View
+                style={[
+                  styles.modalHeader,
+                  {
+                    backgroundColor: colors.cardBackground,
+                    borderBottomColor: colors.border,
+                  },
+                ]}
+              >
                 <Text
                   style={[styles.modalTitle, { color: colors.textPrimary }]}
                 >
@@ -190,127 +204,142 @@ const HomeScreen = () => {
                   />
                 </TouchableOpacity>
               </View>
-              <ScrollView style={styles.modalScroll}>
-                <View style={styles.featuresContainer}>
-                  <View
-                    style={[
-                      styles.featureCard,
-                      { backgroundColor: colors.cardBackground },
-                    ]}
-                  >
-                    <View style={styles.featureHeader}>
-                      <View
-                        style={[
-                          styles.featureIconContainer,
-                          { backgroundColor: colors.background },
-                        ]}
-                      >
-                        <MaterialCommunityIcons
-                          name="robot"
-                          size={24}
-                          color={colors.accent}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.featureTitle,
-                          { color: colors.textPrimary },
-                        ]}
-                      >
-                        AI 기반 분석
-                      </Text>
+              <ScrollView
+                style={[
+                  styles.modalScroll,
+                  { backgroundColor: colors.cardBackground },
+                ]}
+                contentContainerStyle={styles.featuresContainer}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                <View
+                  style={[
+                    styles.featureCard,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.featureHeader}>
+                    <View
+                      style={[
+                        styles.featureIconContainer,
+                        { backgroundColor: colors.background },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name="robot"
+                        size={24}
+                        color={colors.accent}
+                      />
                     </View>
                     <Text
                       style={[
-                        styles.featureDescription,
-                        { color: colors.textSecondary },
+                        styles.featureTitle,
+                        { color: colors.textPrimary },
                       ]}
                     >
-                      GPT 기술을 활용한 맞춤형 주식 분석과 투자 전략을
-                      제시해드립니다
+                      AI 기반 분석
                     </Text>
                   </View>
+                  <Text
+                    style={[
+                      styles.featureDescription,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    GPT 기술을 활용한 맞춤형 주식 분석과 투자 전략을
+                    제시해드립니다
+                  </Text>
+                </View>
 
-                  <View
-                    style={[
-                      styles.featureCard,
-                      { backgroundColor: colors.cardBackground },
-                    ]}
-                  >
-                    <View style={styles.featureHeader}>
-                      <View
-                        style={[
-                          styles.featureIconContainer,
-                          { backgroundColor: colors.background },
-                        ]}
-                      >
-                        <MaterialCommunityIcons
-                          name="calendar-clock"
-                          size={24}
-                          color={colors.accent}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.featureTitle,
-                          { color: colors.textPrimary },
-                        ]}
-                      >
-                        투자 일정 관리
-                      </Text>
+                <View
+                  style={[
+                    styles.featureCard,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.featureHeader}>
+                    <View
+                      style={[
+                        styles.featureIconContainer,
+                        { backgroundColor: colors.background },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name="calendar-clock"
+                        size={24}
+                        color={colors.accent}
+                      />
                     </View>
                     <Text
                       style={[
-                        styles.featureDescription,
-                        { color: colors.textSecondary },
+                        styles.featureTitle,
+                        { color: colors.textPrimary },
                       ]}
                     >
-                      FOMC, GDP, CPI 등 주요 경제지표 발표 일정을 한눈에
-                      확인하세요
+                      투자 일정 관리
                     </Text>
                   </View>
+                  <Text
+                    style={[
+                      styles.featureDescription,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    FOMC, GDP, CPI 등 주요 경제지표 발표 일정을 한눈에
+                    확인하세요
+                  </Text>
+                </View>
 
-                  <View
-                    style={[
-                      styles.featureCard,
-                      { backgroundColor: colors.cardBackground },
-                    ]}
-                  >
-                    <View style={styles.featureHeader}>
-                      <View
-                        style={[
-                          styles.featureIconContainer,
-                          { backgroundColor: colors.background },
-                        ]}
-                      >
-                        <MaterialCommunityIcons
-                          name="chart-timeline-variant"
-                          size={24}
-                          color={colors.accent}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.featureTitle,
-                          { color: colors.textPrimary },
-                        ]}
-                      >
-                        실시간 시장 동향
-                      </Text>
+                <View
+                  style={[
+                    styles.featureCard,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.featureHeader}>
+                    <View
+                      style={[
+                        styles.featureIconContainer,
+                        { backgroundColor: colors.background },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name="chart-timeline-variant"
+                        size={24}
+                        color={colors.accent}
+                      />
                     </View>
                     <Text
                       style={[
-                        styles.featureDescription,
-                        { color: colors.textSecondary },
+                        styles.featureTitle,
+                        { color: colors.textPrimary },
                       ]}
                     >
-                      미국/한국 증시와 가상자산 시장의 최신 뉴스를 실시간으로
-                      확인하세요
+                      실시간 시장 동향
                     </Text>
                   </View>
+                  <Text
+                    style={[
+                      styles.featureDescription,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    미국/한국 증시와 가상자산 시장의 최신 뉴스를 실시간으로
+                    확인하세요
+                  </Text>
                 </View>
               </ScrollView>
-            </Pressable>
+            </View>
           </Animated.View>
         </Pressable>
       </Modal>
@@ -334,7 +363,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     alignItems: "center",
-    marginBottom: "25%",
+    marginBottom: 100,
   },
   header: {
     alignItems: "center",
@@ -412,58 +441,73 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   modalContent: {
-    backgroundColor: "white",
-    borderRadius: 20,
-    padding: 24,
-    width: "90%",
+    width: "100%",
     maxWidth: 500,
     maxHeight: "80%",
+    borderRadius: 20,
+    overflow: "hidden",
+    backgroundColor: "white",
+  },
+  modalContainer: {
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(128, 128, 128, 0.1)",
+    backgroundColor: "white",
   },
   modalTitle: {
     fontSize: 24,
     fontFamily: "Inter_600SemiBold",
   },
   modalScroll: {
-    maxHeight: "100%",
+    flexGrow: 1,
   },
   featuresContainer: {
+    padding: 24,
+    paddingTop: 16,
     gap: 16,
   },
   featureCard: {
-    padding: 24,
+    padding: 20,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(128, 128, 128, 0.1)",
+    backgroundColor: "white",
   },
   featureHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 12,
     gap: 12,
   },
   featureIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
   },
   featureTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: "Inter_600SemiBold",
+    flex: 1,
   },
   featureDescription: {
     fontSize: 15,
     fontFamily: "Inter_400Regular",
     lineHeight: 22,
+    opacity: 0.8,
   },
 });
 

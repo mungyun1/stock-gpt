@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   welcomeText: {
-    fontSize: 22,
+    fontSize: 20,
     textAlign: "center",
     fontFamily: "Inter_400Regular",
     lineHeight: 36,
