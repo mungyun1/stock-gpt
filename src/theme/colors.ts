@@ -22,5 +22,7 @@ export const useThemeColors = () => {
     // 메시지 배경색
     messageUser: isDark ? "#3B82F6" : "#0B4619",
     messageAI: isDark ? "#252A3C" : "#F8F9FA",
+    // 주요 색상
+    primary: isDark ? "#3B82F6" : "#0B4619",
   };
 };
