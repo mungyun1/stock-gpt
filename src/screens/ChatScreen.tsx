@@ -223,14 +223,394 @@ const ChatScreen = () => {
     }
   };
 
+  const generateThreadTitle = async (message: string) => {
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content:
+              "주어진 메시지를 기반으로 15자 이내의 간단한 대화 제목을 생성해주세요. 제목은 한국어로 작성하고, 메시지의 핵심 주제나 질문을 잘 반영해야 합니다.",
+          },
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 50,
+      });
+
+      const title =
+        completion.choices[0]?.message?.content?.trim() || "새로운 대화";
+      return title;
+    } catch (error) {
+      console.error("제목 생성 중 오류:", error);
+      return "새로운 대화";
+    }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
+
+    const userMessage = input.trim();
+    setInput("");
+
+    try {
+      if (!threadId) {
+        // 새 스레드 생성
+        const thread = await openai.beta.threads.create();
+        console.log("새 스레드 생성됨:", thread.id);
+
+        // GPT로 제목 생성
+        const generatedTitle = await generateThreadTitle(userMessage);
+
+        const newThread: Thread = {
+          id: thread.id,
+          title: generatedTitle,
+          created_at: new Date(),
+        };
+
+        setThreadId(thread.id);
+        setThreads((prev) => [newThread, ...prev]);
+        await saveThreads([newThread, ...threads]);
+      }
+
+      // 사용자 메시지 추가
+      setMessages((prev) => [
+        ...prev,
+        {
+          text: userMessage,
+          isUser: true,
+          id: Date.now().toString(),
+          createdAt: new Date(),
+        },
+      ]);
+
+      // AI 응답 대기 중 메시지 추가
+      setIsTyping(true);
+      setMessages((prev) => [
+        ...prev,
+        {
+          text: "•••",
+          isUser: false,
+          id: "typing",
+          createdAt: new Date(),
+        },
+      ]);
+
+      // 스크롤을 아래로 이동
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+
+      // AI 응답 받기
+      await sendMessageToAssistant(userMessage);
+
+      // 타이핑 중 메시지 제거
+      setMessages((prev) => prev.filter((msg) => msg.id !== "typing"));
+      setIsTyping(false);
+    } catch (error) {
+      console.error("메시지 전송 중 오류:", error);
+      setMessages((prev) => prev.filter((msg) => msg.id !== "typing"));
+      setIsTyping(false);
+    }
+  };
+
+  const handleLink = (url: string) => {
+    Linking.openURL(url);
+  };
+
+  const toggleSidebar = () => {
+    Keyboard.dismiss();
+    const toValue = isSidebarOpen ? -SIDEBAR_WIDTH : 0;
+    const overlayToValue = isSidebarOpen ? 0 : 0.5;
+
+    Animated.parallel([
+      Animated.spring(sidebarAnimation, {
+        toValue,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 11,
+      }),
+      Animated.timing(overlayAnimation, {
+        toValue: overlayToValue,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setIsSidebarOpen(!isSidebarOpen);
+    });
+  };
+
+  const sendMessageToAssistant = async (userMessage: string) => {
+    if (!threadId || !ASSISTANT_ID) {
+      console.error("스레드 ID 또는 어시스턴트 ID가 없음:", {
+        threadId,
+        ASSISTANT_ID,
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      console.log("사용자 메시지 생성 시작");
+
+      // Assistant ID 유효성 검사
+      try {
+        const assistant = await openai.beta.assistants.retrieve(ASSISTANT_ID);
+        console.log("Assistant 정보:", {
+          name: assistant.name,
+          model: assistant.model,
+          instructions: assistant.instructions?.substring(0, 50) + "...",
+        });
+      } catch (error: any) {
+        if (error?.error?.code === "rate_limit_exceeded") {
+          const shouldRetry = await handleRateLimit();
+          if (shouldRetry) {
+            return await sendMessageToAssistant(userMessage);
+          }
+        }
+        console.error("Assistant ID가 유효하지 않음:", error);
+        throw new Error("Assistant ID가 유효하지 않습니다.");
+      }
+
+      // 사용자 메시지 생성
+      let createdMessage;
+      try {
+        createdMessage = await openai.beta.threads.messages.create(threadId, {
+          role: "user",
+          content: userMessage,
+        });
+        console.log("사용자 메시지 생성 완료:", createdMessage.id);
+      } catch (error: any) {
+        if (error?.error?.code === "rate_limit_exceeded") {
+          const shouldRetry = await handleRateLimit();
+          if (shouldRetry) {
+            return await sendMessageToAssistant(userMessage);
+          }
+        }
+        throw error;
+      }
+
+      // Assistant 실행
+      console.log("Assistant 실행 시작");
+      let run;
+      try {
+        // 제목 생성을 위한 instructions 추가
+        run = await openai.beta.threads.runs.create(threadId, {
+          assistant_id: ASSISTANT_ID,
+          instructions:
+            "답변 시작 시 반드시 첫 줄에 '#제목: [이 대화의 핵심을 잘 나타내는 15자 이내의 제목]' 형식으로 제목을 포함해주세요.",
+        });
+        console.log("Assistant 실행 요청 완료:", run.id);
+      } catch (error: any) {
+        if (error?.error?.code === "rate_limit_exceeded") {
+          const shouldRetry = await handleRateLimit();
+          if (shouldRetry) {
+            return await sendMessageToAssistant(userMessage);
+          }
+        }
+        throw error;
+      }
+
+      // 실행 상태 확인
+      let runStatus = await openai.beta.threads.runs.retrieve(run.id, {
+        thread_id: threadId,
+      });
+      console.log("초기 실행 상태:", runStatus.status);
+
+      let retryCount = 0;
+      const maxStatusRetries = 30; // 30초 타임아웃
+
+      while (
+        runStatus.status !== "completed" &&
+        retryCount < maxStatusRetries
+      ) {
+        await delay(1000);
+        try {
+          runStatus = await openai.beta.threads.runs.retrieve(run.id, {
+            thread_id: threadId,
+          });
+          console.log("실행 상태 업데이트:", runStatus.status);
+        } catch (error: any) {
+          if (error?.error?.code === "rate_limit_exceeded") {
+            const shouldRetry = await handleRateLimit();
+            if (shouldRetry) {
+              continue;
+            }
+          }
+          throw error;
+        }
+
+        if (runStatus.status === "failed") {
+          const runDetails = await openai.beta.threads.runs.retrieve(run.id, {
+            thread_id: threadId,
+          });
+          console.error("실행 실패 상세:", runDetails);
+
+          if (runDetails.last_error?.code === "rate_limit_exceeded") {
+            const shouldRetry = await handleRateLimit();
+            if (shouldRetry) {
+              return await sendMessageToAssistant(userMessage);
+            }
+          }
+
+          throw new Error(
+            `Assistant 실행 실패: ${
+              runDetails.last_error?.message || "알 수 없는 오류"
+            }`
+          );
+        }
+
+        if (runStatus.status === "expired") {
+          throw new Error("Assistant 실행 시간 초과");
+        }
+
+        if (runStatus.status === "requires_action") {
+          console.log("Assistant가 추가 작업 요청:", runStatus);
+        }
+
+        retryCount++;
+      }
+
+      if (retryCount >= maxStatusRetries) {
+        throw new Error("Assistant 응답 시간 초과");
+      }
+
+      // 메시지 목록 가져오기
+      let messages;
+      try {
+        console.log("메시지 목록 요청");
+        messages = await openai.beta.threads.messages.list(threadId);
+        const lastMessage = messages.data[0];
+        console.log("받은 메시지:", lastMessage);
+
+        if (
+          lastMessage.role === "assistant" &&
+          lastMessage.content[0].type === "text"
+        ) {
+          const messageContent = lastMessage.content[0].text.value;
+
+          // 제목 추출
+          const titleMatch = messageContent.match(/#제목:\s*([^\n]+)/);
+          let title = "새로운 대화";
+          let content = messageContent;
+
+          if (titleMatch) {
+            title = titleMatch[1].trim();
+            // 제목 줄과 그 다음의 빈 줄들을 모두 제거
+            content = messageContent
+              .replace(/#제목:.*(\r?\n|\r)*/, "") // 제목 줄 제거
+              .trim(); // 앞뒤 공백 제거
+          }
+
+          const assistantMessage = {
+            text: content,
+            isUser: false,
+            id: lastMessage.id,
+            createdAt: new Date(lastMessage.created_at * 1000),
+          };
+
+          setMessages((prev) => [...prev, assistantMessage]);
+
+          // 첫 메시지인 경우에만 제목 업데이트
+          if (messages.data.length <= 2) {
+            // 사용자 메시지 1개, AI 응답 1개
+            const updatedThreads = threads.map((thread) =>
+              thread.id === threadId
+                ? { ...thread, title, last_message: userMessage }
+                : thread
+            );
+            setThreads(updatedThreads);
+            await saveThreads(updatedThreads);
+          } else {
+            await updateThreadTitle(threadId, userMessage);
+          }
+
+          console.log("응답 메시지 처리 완료");
+        }
+      } catch (error: any) {
+        if (error?.error?.code === "rate_limit_exceeded") {
+          const shouldRetry = await handleRateLimit();
+          if (shouldRetry) {
+            return await sendMessageToAssistant(userMessage);
+          }
+        }
+        throw error;
+      }
+    } catch (error: any) {
+      console.error("메시지 전송 중 상세 오류:", error);
+
+      // 사용자에게 오류 메시지 표시
+      const errorMessage =
+        error?.error?.code === "rate_limit_exceeded"
+          ? "API 사용량 제한에 도달했습니다. 잠시 후 다시 시도해주세요."
+          : `오류가 발생했습니다: ${
+              error.message || "알 수 없는 오류가 발생했습니다"
+            }`;
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          text: errorMessage,
+          isUser: false,
+          id: Date.now().toString(),
+          createdAt: new Date(),
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleThreadSelect = async (thread: Thread) => {
+    try {
+      setThreadId(thread.id);
+      await loadThreadMessages(thread.id);
+      toggleSidebar();
+    } catch (error) {
+      console.error("스레드 선택 중 오류:", error);
+    }
+  };
+
+  const handleDeleteThread = async (threadId: string) => {
+    try {
+      await openai.beta.threads.delete(threadId);
+      const updatedThreads = threads.filter((t) => t.id !== threadId);
+      setThreads(updatedThreads);
+      await saveThreads(updatedThreads);
+
+      if (threadId === threadId) {
+        setThreadId(null);
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error("스레드 삭제 중 오류:", error);
+    }
+  };
+
+  const updateThreadTitle = async (threadId: string, lastMessage: string) => {
+    // 이미 제목이 있는 경우 마지막 메시지만 업데이트
+    const updatedThreads = threads.map((thread) => {
+      if (thread.id === threadId) {
+        return {
+          ...thread,
+          last_message: lastMessage,
+        };
+      }
+      return thread;
+    });
+    setThreads(updatedThreads);
+    await saveThreads(updatedThreads);
+  };
+
   const createNewThread = async () => {
     try {
       const thread = await openai.beta.threads.create();
 
-      // 첫 메시지가 입력되기 전까지는 빈 제목 사용
       const newThread: Thread = {
         id: thread.id,
-        title: "",
+        title: "새로운 대화",
         created_at: new Date(),
       };
 
@@ -348,326 +728,6 @@ const ChatScreen = () => {
     }
   };
 
-  const handleThreadSelect = async (thread: Thread) => {
-    try {
-      setThreadId(thread.id);
-      await loadThreadMessages(thread.id);
-      toggleSidebar();
-    } catch (error) {
-      console.error("스레드 선택 중 오류:", error);
-    }
-  };
-
-  const handleDeleteThread = async (threadId: string) => {
-    try {
-      await openai.beta.threads.delete(threadId);
-      const updatedThreads = threads.filter((t) => t.id !== threadId);
-      setThreads(updatedThreads);
-      await saveThreads(updatedThreads);
-
-      if (threadId === threadId) {
-        setThreadId(null);
-        setMessages([]);
-      }
-    } catch (error) {
-      console.error("스레드 삭제 중 오류:", error);
-    }
-  };
-
-  const updateThreadTitle = async (threadId: string, lastMessage: string) => {
-    const updatedThreads = threads.map((thread) =>
-      thread.id === threadId
-        ? {
-            ...thread,
-            last_message: lastMessage,
-            // 첫 메시지인 경우 제목 업데이트
-            title: thread.title.endsWith("...")
-              ? lastMessage.substring(0, 30) + "..."
-              : thread.title,
-          }
-        : thread
-    );
-    setThreads(updatedThreads);
-    await saveThreads(updatedThreads);
-  };
-
-  const handleSend = async () => {
-    if (!input.trim()) return;
-
-    const userMessage = input.trim();
-    setInput("");
-
-    try {
-      if (!threadId) {
-        // 새 스레드 생성
-        const thread = await openai.beta.threads.create();
-        console.log("새 스레드 생성됨:", thread.id);
-
-        const newThread: Thread = {
-          id: thread.id,
-          title: userMessage,
-          created_at: new Date(),
-        };
-
-        setThreadId(thread.id);
-        setThreads((prev) => [newThread, ...prev]);
-        await saveThreads([newThread, ...threads]);
-      }
-
-      // 사용자 메시지 추가
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: userMessage,
-          isUser: true,
-          id: Date.now().toString(),
-          createdAt: new Date(),
-        },
-      ]);
-
-      // AI 응답 대기 중 메시지 추가
-      setIsTyping(true);
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: "•••",
-          isUser: false,
-          id: "typing",
-          createdAt: new Date(),
-        },
-      ]);
-
-      // 스크롤을 아래로 이동
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-
-      // AI 응답 받기
-      await sendMessageToAssistant(userMessage);
-
-      // 타이핑 중 메시지 제거
-      setMessages((prev) => prev.filter((msg) => msg.id !== "typing"));
-      setIsTyping(false);
-    } catch (error) {
-      console.error("메시지 전송 중 오류:", error);
-      // 에러 발생 시 타이핑 중 메시지 제거
-      setMessages((prev) => prev.filter((msg) => msg.id !== "typing"));
-      setIsTyping(false);
-    }
-  };
-
-  const handleLink = (url: string) => {
-    Linking.openURL(url);
-  };
-
-  const toggleSidebar = () => {
-    const toValue = isSidebarOpen ? -SIDEBAR_WIDTH : 0;
-    const overlayToValue = isSidebarOpen ? 0 : 0.5;
-
-    Animated.parallel([
-      Animated.spring(sidebarAnimation, {
-        toValue,
-        useNativeDriver: true,
-        tension: 65,
-        friction: 11,
-      }),
-      Animated.timing(overlayAnimation, {
-        toValue: overlayToValue,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const sendMessageToAssistant = async (userMessage: string) => {
-    if (!threadId || !ASSISTANT_ID) {
-      console.error("스레드 ID 또는 어시스턴트 ID가 없음:", {
-        threadId,
-        ASSISTANT_ID,
-      });
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      console.log("사용자 메시지 생성 시작");
-
-      // Assistant ID 유효성 검사
-      try {
-        const assistant = await openai.beta.assistants.retrieve(ASSISTANT_ID);
-        console.log("Assistant 정보:", {
-          name: assistant.name,
-          model: assistant.model,
-          instructions: assistant.instructions?.substring(0, 50) + "...",
-        });
-      } catch (error: any) {
-        if (error?.error?.code === "rate_limit_exceeded") {
-          const shouldRetry = await handleRateLimit();
-          if (shouldRetry) {
-            return await sendMessageToAssistant(userMessage);
-          }
-        }
-        console.error("Assistant ID가 유효하지 않음:", error);
-        throw new Error("Assistant ID가 유효하지 않습니다.");
-      }
-
-      // 사용자 메시지 생성
-      let createdMessage;
-      try {
-        createdMessage = await openai.beta.threads.messages.create(threadId, {
-          role: "user",
-          content: userMessage,
-        });
-        console.log("사용자 메시지 생성 완료:", createdMessage.id);
-      } catch (error: any) {
-        if (error?.error?.code === "rate_limit_exceeded") {
-          const shouldRetry = await handleRateLimit();
-          if (shouldRetry) {
-            return await sendMessageToAssistant(userMessage);
-          }
-        }
-        throw error;
-      }
-
-      // Assistant 실행
-      console.log("Assistant 실행 시작");
-      let run;
-      try {
-        run = await openai.beta.threads.runs.create(threadId, {
-          assistant_id: ASSISTANT_ID,
-        });
-        console.log("Assistant 실행 요청 완료:", run.id);
-      } catch (error: any) {
-        if (error?.error?.code === "rate_limit_exceeded") {
-          const shouldRetry = await handleRateLimit();
-          if (shouldRetry) {
-            return await sendMessageToAssistant(userMessage);
-          }
-        }
-        throw error;
-      }
-
-      // 실행 상태 확인
-      let runStatus = await openai.beta.threads.runs.retrieve(run.id, {
-        thread_id: threadId,
-      });
-      console.log("초기 실행 상태:", runStatus.status);
-
-      let retryCount = 0;
-      const maxStatusRetries = 30; // 30초 타임아웃
-
-      while (
-        runStatus.status !== "completed" &&
-        retryCount < maxStatusRetries
-      ) {
-        await delay(1000);
-        try {
-          runStatus = await openai.beta.threads.runs.retrieve(run.id, {
-            thread_id: threadId,
-          });
-          console.log("실행 상태 업데이트:", runStatus.status);
-        } catch (error: any) {
-          if (error?.error?.code === "rate_limit_exceeded") {
-            const shouldRetry = await handleRateLimit();
-            if (shouldRetry) {
-              continue;
-            }
-          }
-          throw error;
-        }
-
-        if (runStatus.status === "failed") {
-          const runDetails = await openai.beta.threads.runs.retrieve(run.id, {
-            thread_id: threadId,
-          });
-          console.error("실행 실패 상세:", runDetails);
-
-          if (runDetails.last_error?.code === "rate_limit_exceeded") {
-            const shouldRetry = await handleRateLimit();
-            if (shouldRetry) {
-              return await sendMessageToAssistant(userMessage);
-            }
-          }
-
-          throw new Error(
-            `Assistant 실행 실패: ${
-              runDetails.last_error?.message || "알 수 없는 오류"
-            }`
-          );
-        }
-
-        if (runStatus.status === "expired") {
-          throw new Error("Assistant 실행 시간 초과");
-        }
-
-        if (runStatus.status === "requires_action") {
-          console.log("Assistant가 추가 작업 요청:", runStatus);
-        }
-
-        retryCount++;
-      }
-
-      if (retryCount >= maxStatusRetries) {
-        throw new Error("Assistant 응답 시간 초과");
-      }
-
-      // 메시지 목록 가져오기
-      let messages;
-      try {
-        console.log("메시지 목록 요청");
-        messages = await openai.beta.threads.messages.list(threadId);
-        const lastMessage = messages.data[0];
-        console.log("받은 메시지:", lastMessage);
-
-        if (
-          lastMessage.role === "assistant" &&
-          lastMessage.content[0].type === "text"
-        ) {
-          const assistantMessage = {
-            text: lastMessage.content[0].text.value,
-            isUser: false,
-            id: lastMessage.id,
-            createdAt: new Date(lastMessage.created_at * 1000),
-          };
-
-          setMessages((prev) => [...prev, assistantMessage]);
-          await updateThreadTitle(threadId, userMessage);
-          console.log("응답 메시지 처리 완료");
-        }
-      } catch (error: any) {
-        if (error?.error?.code === "rate_limit_exceeded") {
-          const shouldRetry = await handleRateLimit();
-          if (shouldRetry) {
-            return await sendMessageToAssistant(userMessage);
-          }
-        }
-        throw error;
-      }
-    } catch (error: any) {
-      console.error("메시지 전송 중 상세 오류:", error);
-
-      // 사용자에게 오류 메시지 표시
-      const errorMessage =
-        error?.error?.code === "rate_limit_exceeded"
-          ? "API 사용량 제한에 도달했습니다. 잠시 후 다시 시도해주세요."
-          : `오류가 발생했습니다: ${
-              error.message || "알 수 없는 오류가 발생했습니다"
-            }`;
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: errorMessage,
-          isUser: false,
-          id: Date.now().toString(),
-          createdAt: new Date(),
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -675,150 +735,9 @@ const ChatScreen = () => {
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
+        style={[styles.container, { backgroundColor: colors.background }]}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
       >
-        {/* Overlay */}
-        {isSidebarOpen && (
-          <Pressable style={styles.overlay} onPress={toggleSidebar}>
-            <Animated.View
-              style={[
-                styles.overlayBackground,
-                {
-                  opacity: overlayAnimation,
-                },
-              ]}
-            />
-          </Pressable>
-        )}
-
-        {/* Sidebar */}
-        <Animated.View
-          style={[
-            styles.sidebar,
-            {
-              backgroundColor: colors.cardBackground,
-              transform: [{ translateX: sidebarAnimation }],
-            },
-          ]}
-        >
-          <View style={styles.sidebarContent}>
-            <View
-              style={[
-                styles.sidebarHeader,
-                { backgroundColor: colors.cardBackground },
-              ]}
-            >
-              <View style={styles.headerContent}>
-                <Text style={[styles.sidebarTitle, { color: colors.accent }]}>
-                  채팅 목록
-                </Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={toggleSidebar}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons
-                    name="close"
-                    size={22}
-                    color={colors.textSecondary}
-                    style={{ opacity: 0.6 }}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-            <ScrollView
-              style={styles.threadList}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.threadListContent}
-            >
-              {threads.map((thread) => (
-                <TouchableOpacity
-                  key={thread.id}
-                  style={[
-                    styles.threadItem,
-                    {
-                      borderBottomColor: colors.border,
-                      backgroundColor: colors.background,
-                      // 현재 선택된 스레드 강조
-                      ...(thread.id === threadId && {
-                        backgroundColor: `${colors.accent}10`,
-                      }),
-                    },
-                  ]}
-                  onPress={() => handleThreadSelect(thread)}
-                >
-                  <View style={styles.threadItemInner}>
-                    <View
-                      style={[
-                        styles.threadIconContainer,
-                        { backgroundColor: `${colors.accent}15` },
-                      ]}
-                    >
-                      <Ionicons
-                        name="chatbubble-outline"
-                        size={16}
-                        color={colors.accent}
-                        style={{ opacity: 0.8 }}
-                      />
-                    </View>
-                    <View style={styles.threadTextContainer}>
-                      <Text
-                        style={[
-                          styles.threadTitle,
-                          {
-                            color: colors.textPrimary,
-                            opacity: 0.87,
-                          },
-                        ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {thread.title || "새로운 채팅"}
-                      </Text>
-                      {thread.last_message && (
-                        <Text
-                          style={[
-                            styles.threadLastMessage,
-                            {
-                              color: colors.textSecondary,
-                            },
-                          ]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {thread.last_message}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteThread(thread.id)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={16}
-                      color={colors.textSecondary}
-                      style={{ opacity: 0.4 }}
-                    />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              style={[styles.newChatButton, { backgroundColor: colors.accent }]}
-              onPress={createNewThread}
-            >
-              <View style={styles.newChatButtonContent}>
-                <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
-                <Text style={styles.newChatButtonText}>새로운 채팅</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
         {/* Header */}
         <View
           style={[
@@ -879,16 +798,47 @@ const ChatScreen = () => {
                   style={[
                     styles.messageContainer,
                     msg.isUser
-                      ? [styles.userMessage, { backgroundColor: colors.accent }]
+                      ? [
+                          styles.userMessage,
+                          {
+                            backgroundColor: colors.accent,
+                          },
+                        ]
                       : [
                           styles.aiMessage,
                           {
-                            backgroundColor: colors.cardBackground,
-                            borderColor: colors.border,
+                            borderTopWidth: 0.5,
+                            borderBottomWidth: 0.5,
+                            borderColor: `${colors.border}50`,
                           },
                         ],
                   ]}
                 >
+                  {!msg.isUser && (
+                    <View style={styles.aiMessageHeader}>
+                      <View
+                        style={[
+                          styles.avatarContainer,
+                          { backgroundColor: `${colors.accent}08` },
+                        ]}
+                      >
+                        <Ionicons
+                          name="terminal-outline"
+                          size={14}
+                          color={colors.accent}
+                          style={{ opacity: 0.8 }}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.aiLabel,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Stock GPT
+                      </Text>
+                    </View>
+                  )}
                   {msg.id === "typing" ? (
                     <TypingIndicator />
                   ) : (
@@ -936,7 +886,7 @@ const ChatScreen = () => {
                 },
               ]}
               placeholder={
-                isTyping ? "응답을 기다리는 중..." : "메시지를 입력하세요..."
+                isTyping ? "응답을 기다리는 중..." : "질문을 입력하세요"
               }
               placeholderTextColor={colors.textSecondary}
               value={input}
@@ -965,17 +915,185 @@ const ChatScreen = () => {
             >
               <Ionicons
                 name={isTyping ? "time-outline" : "send"}
-                size={24}
+                size={16}
                 color={
                   input.trim() && !isTyping ? "#FFFFFF" : colors.textSecondary
                 }
                 style={{
-                  transform: [{ rotate: isTyping ? "0deg" : "45deg" }],
+                  transform: [{ rotate: isTyping ? "0deg" : "-90deg" }],
                 }}
               />
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Overlay */}
+        <Animated.View
+          style={[
+            styles.overlay,
+            {
+              opacity: overlayAnimation,
+              backgroundColor: "#000",
+              pointerEvents: isSidebarOpen ? "auto" : "none",
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.overlayTouchable}
+            onPress={toggleSidebar}
+            activeOpacity={1}
+          />
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.sidebar,
+            {
+              backgroundColor: colors.cardBackground,
+              transform: [{ translateX: sidebarAnimation }],
+            },
+          ]}
+        >
+          <View style={styles.sidebarContent}>
+            <View
+              style={[
+                styles.sidebarHeader,
+                {
+                  backgroundColor: colors.background,
+                  borderBottomColor: colors.border,
+                },
+              ]}
+            >
+              <View style={styles.headerContent}>
+                <Text
+                  style={[styles.sidebarTitle, { color: colors.textPrimary }]}
+                >
+                  대화 목록
+                </Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={toggleSidebar}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons
+                    name="close"
+                    size={20}
+                    color={colors.textSecondary}
+                    style={{ opacity: 0.6 }}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+            <ScrollView
+              style={[
+                styles.threadList,
+                { backgroundColor: colors.cardBackground },
+              ]}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.threadListContent}
+            >
+              {threads.map((thread) => (
+                <TouchableOpacity
+                  key={thread.id}
+                  style={[
+                    styles.threadItem,
+                    {
+                      borderBottomColor: colors.border,
+                      backgroundColor:
+                        thread.id === threadId
+                          ? `${colors.accent}08`
+                          : "transparent",
+                    },
+                  ]}
+                  onPress={() => handleThreadSelect(thread)}
+                >
+                  <View style={styles.threadItemInner}>
+                    <View
+                      style={[
+                        styles.threadIconContainer,
+                        {
+                          backgroundColor:
+                            thread.id === threadId
+                              ? `${colors.accent}15`
+                              : `${colors.accent}08`,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name="chatbubble-ellipses-outline"
+                        size={15}
+                        color={colors.accent}
+                        style={{
+                          opacity: thread.id === threadId ? 1 : 0.8,
+                        }}
+                      />
+                    </View>
+                    <View style={styles.threadTextContainer}>
+                      <Text
+                        style={[
+                          styles.threadTitle,
+                          {
+                            color: colors.textPrimary,
+                            opacity: thread.id === threadId ? 1 : 0.9,
+                          },
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {thread.title || "새로운 대화"}
+                      </Text>
+                      {thread.last_message && (
+                        <Text
+                          style={[
+                            styles.threadLastMessage,
+                            {
+                              color: colors.textSecondary,
+                              opacity: thread.id === threadId ? 0.8 : 0.6,
+                            },
+                          ]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {thread.last_message}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteThread(thread.id)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={15}
+                      color={colors.textSecondary}
+                      style={{ opacity: 0.4 }}
+                    />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[
+                styles.newChatButton,
+                {
+                  backgroundColor: `${colors.accent}08`,
+                },
+              ]}
+              onPress={createNewThread}
+            >
+              <View style={styles.newChatButtonContent}>
+                <Ionicons name="add-circle" size={17} color={colors.accent} />
+                <Text
+                  style={[styles.newChatButtonText, { color: colors.accent }]}
+                >
+                  새로운 대화
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -993,13 +1111,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 999,
   },
-  overlayBackground: {
-    backgroundColor: "#000",
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+  overlayTouchable: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
   },
   sidebar: {
     position: "absolute",
@@ -1016,38 +1131,37 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   sidebarHeader: {
-    paddingTop: 12,
-    paddingBottom: 12,
+    padding: 16,
+    height: 68,
     borderBottomWidth: 0.5,
+    justifyContent: "center",
   },
   headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
   },
   sidebarTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
+    letterSpacing: -0.3,
+    opacity: 0.9,
   },
   closeButton: {
     padding: 4,
-    marginRight: -4,
   },
   threadList: {
     flex: 1,
   },
   threadListContent: {
-    paddingTop: 4,
+    paddingVertical: 4,
   },
   threadItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: 0.5,
-    paddingRight: 4,
+    paddingRight: 12,
   },
   threadItemInner: {
     flex: 1,
@@ -1058,8 +1172,8 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   threadIconContainer: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
@@ -1069,28 +1183,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   threadTitle: {
-    flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: "Inter_500Medium",
     letterSpacing: -0.3,
+    marginBottom: 2,
   },
   threadLastMessage: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
-    opacity: 0.6,
+    opacity: 0.7,
   },
   deleteButton: {
     padding: 8,
     opacity: 0.8,
   },
-  deleteIcon: {
-    opacity: 0.6,
-  },
   newChatButton: {
-    margin: 20,
-    marginTop: 12,
-    borderRadius: 10,
-    paddingVertical: 14,
+    margin: 16,
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 12,
   },
   newChatButtonContent: {
     flexDirection: "row",
@@ -1099,7 +1210,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   newChatButtonText: {
-    color: "#FFFFFF",
     fontSize: 15,
     fontFamily: "Inter_600SemiBold",
     letterSpacing: -0.3,
@@ -1108,8 +1218,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 20,
-    paddingHorizontal: 24,
+    padding: 16,
+    height: 68,
     borderBottomWidth: 1,
   },
   headerTitleButton: {
@@ -1133,41 +1243,68 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   welcomeText: {
-    fontSize: 20,
+    fontSize: 18,
     textAlign: "center",
     fontFamily: "Inter_400Regular",
-    lineHeight: 36,
+    lineHeight: 28,
+    opacity: 0.8,
   },
   messageWrapper: {
     marginVertical: 12,
-    flexDirection: "row",
   },
   userMessageWrapper: {
-    justifyContent: "flex-end",
+    alignItems: "flex-end",
+    paddingLeft: "15%",
+    marginVertical: 8,
   },
   aiMessageWrapper: {
-    justifyContent: "flex-start",
+    width: "100%",
+    marginVertical: 0,
+  },
+  aiMessageHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    paddingTop: 4,
+  },
+  avatarContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  aiLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+    opacity: 0.5,
+    letterSpacing: -0.3,
   },
   messageContainer: {
-    maxWidth: "85%",
-    padding: 16,
-    borderRadius: 16,
+    width: "100%",
   },
   userMessage: {
+    maxWidth: "85%",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
     borderBottomRightRadius: 4,
   },
   aiMessage: {
-    borderBottomLeftRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   messageText: {
-    fontSize: 17,
+    fontSize: 15,
     fontFamily: "Inter_400Regular",
     lineHeight: 24,
   },
   inputContainer: {
     borderTopWidth: 1,
     padding: 16,
-    paddingHorizontal: 24,
+    width: "100%",
+    zIndex: 1,
   },
   inputWrapper: {
     flexDirection: "row",
