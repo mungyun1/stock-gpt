@@ -13,7 +13,6 @@ import {
 import { View, ActivityIndicator, I18nManager, Platform } from "react-native";
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 const Stack = createNativeStackNavigator();
 
@@ -68,7 +67,6 @@ export default function App() {
           <Stack.Screen name="MarketNews" component={MarketNewsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
-      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 }
