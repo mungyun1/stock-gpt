@@ -526,7 +526,7 @@ const ChatScreen = () => {
         run = await openai.beta.threads.runs.create(threadId, {
           assistant_id: ASSISTANT_ID,
           instructions:
-            "답변 시작 시 반드시 첫 줄에 '#제목: [이 대화의 핵심을 잘 나타내는 15자 이내의 제목]' 형식으로 제목을 포함해주세요.",
+            "너는 소비자독점 기업을 중심으로 미국과 한국 주식을 분석하는 고급 투자 어시스턴트야.",
         });
         console.log("Assistant 실행 요청 완료:", run.id);
       } catch (error: any) {
@@ -539,7 +539,7 @@ const ChatScreen = () => {
         throw error;
       }
 
-      // 실행 상태 확인 및 스트리밍 응답 처리
+      // 실행 상태 확인 및 응답 처리
       let runStatus = await openai.beta.threads.runs.retrieve(run.id, {
         thread_id: threadId,
       });
@@ -547,10 +547,11 @@ const ChatScreen = () => {
 
       let retryCount = 0;
       const maxStatusRetries = 30; // 30초 타임아웃
-      let accumulatedMessage = "";
 
       while (
         runStatus.status !== "completed" &&
+        runStatus.status !== "failed" &&
+        runStatus.status !== "expired" &&
         retryCount < maxStatusRetries
       ) {
         await delay(1000);
@@ -559,56 +560,6 @@ const ChatScreen = () => {
             thread_id: threadId,
           });
           console.log("실행 상태 업데이트:", runStatus.status);
-
-          if (runStatus.status === "completed") {
-            // 생각하는 애니메이션 정지
-            stopThinkingAnimation();
-
-            const messages = await openai.beta.threads.messages.list(threadId);
-            const lastMessage = messages.data[0];
-
-            if (
-              lastMessage.role === "assistant" &&
-              lastMessage.content[0].type === "text"
-            ) {
-              const messageContent = lastMessage.content[0].text.value;
-              const titleMatch = messageContent.match(/#제목:\s*([^\n]+)/);
-              let title = "새로운 대화";
-              let content = messageContent;
-
-              if (titleMatch) {
-                title = titleMatch[1].trim();
-                content = messageContent.replace(/#제목:.*\n*/, "").trim();
-              }
-
-              // 스트리밍 효과를 위한 점진적 업데이트
-              const words = content.split(" ");
-              for (let i = 0; i < words.length; i++) {
-                accumulatedMessage += words[i] + " ";
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === streamingMessageId
-                      ? { ...msg, text: accumulatedMessage.trim() }
-                      : msg
-                  )
-                );
-                await delay(50);
-              }
-
-              // 첫 메시지인 경우에만 제목 업데이트
-              if (messages.data.length <= 2) {
-                const updatedThreads = threads.map((thread) =>
-                  thread.id === threadId
-                    ? { ...thread, title, last_message: userMessage }
-                    : thread
-                );
-                setThreads(updatedThreads);
-                await saveThreads(updatedThreads);
-              } else {
-                await updateThreadTitle(threadId, userMessage);
-              }
-            }
-          }
         } catch (error: any) {
           if (error?.error?.code === "rate_limit_exceeded") {
             const shouldRetry = await handleRateLimit();
@@ -618,39 +569,73 @@ const ChatScreen = () => {
           }
           throw error;
         }
-
-        if (runStatus.status === "failed") {
-          const runDetails = await openai.beta.threads.runs.retrieve(run.id, {
-            thread_id: threadId,
-          });
-          console.error("실행 실패 상세:", runDetails);
-
-          if (runDetails.last_error?.code === "rate_limit_exceeded") {
-            const shouldRetry = await handleRateLimit();
-            if (shouldRetry) {
-              return await sendMessageToAssistant(userMessage);
-            }
-          }
-
-          throw new Error(
-            `Assistant 실행 실패: ${
-              runDetails.last_error?.message || "알 수 없는 오류"
-            }`
-          );
-        }
-
-        if (runStatus.status === "expired") {
-          throw new Error("Assistant 실행 시간 초과");
-        }
-
-        if (runStatus.status === "requires_action") {
-          console.log("Assistant가 추가 작업 요청:", runStatus);
-        }
-
         retryCount++;
       }
 
-      if (retryCount >= maxStatusRetries) {
+      if (runStatus.status === "completed") {
+        // 생각하는 애니메이션 정지
+        stopThinkingAnimation();
+
+        const messages = await openai.beta.threads.messages.list(threadId);
+        const lastMessage = messages.data[0];
+
+        if (
+          lastMessage.role === "assistant" &&
+          lastMessage.content[0].type === "text"
+        ) {
+          const messageContent = lastMessage.content[0].text.value;
+          const titleMatch = messageContent.match(/#제목:\s*([^\n]+)/);
+          let title = "새로운 대화";
+          let content = messageContent;
+
+          if (titleMatch) {
+            title = titleMatch[1].trim();
+            content = messageContent.replace(/#제목:.*\n*/, "").trim();
+          }
+
+          // 기존 로딩 메시지를 새로운 응답으로 교체
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === streamingMessageId
+                ? { ...msg, text: content.trim() }
+                : msg
+            )
+          );
+
+          // 첫 메시지인 경우에만 제목 업데이트
+          if (messages.data.length <= 2) {
+            const updatedThreads = threads.map((thread) =>
+              thread.id === threadId
+                ? { ...thread, title, last_message: userMessage }
+                : thread
+            );
+            setThreads(updatedThreads);
+            await saveThreads(updatedThreads);
+          } else {
+            await updateThreadTitle(threadId, userMessage);
+          }
+        }
+      } else if (runStatus.status === "failed") {
+        const runDetails = await openai.beta.threads.runs.retrieve(run.id, {
+          thread_id: threadId,
+        });
+        console.error("실행 실패 상세:", runDetails);
+
+        if (runDetails.last_error?.code === "rate_limit_exceeded") {
+          const shouldRetry = await handleRateLimit();
+          if (shouldRetry) {
+            return await sendMessageToAssistant(userMessage);
+          }
+        }
+
+        throw new Error(
+          `Assistant 실행 실패: ${
+            runDetails.last_error?.message || "알 수 없는 오류"
+          }`
+        );
+      } else if (runStatus.status === "expired") {
+        throw new Error("Assistant 실행 시간 초과");
+      } else if (retryCount >= maxStatusRetries) {
         throw new Error("Assistant 응답 시간 초과");
       }
     } catch (error: any) {
