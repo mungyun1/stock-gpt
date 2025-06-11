@@ -40,6 +40,8 @@ type Message = {
   id: string;
   createdAt: Date;
   links?: MessageLink[];
+  error?: boolean;
+  lastUserMessage?: string;
 };
 
 type Thread = {
@@ -287,30 +289,14 @@ const ChatScreen = () => {
         },
       ]);
 
-      // AI 응답 대기 중 메시지 추가
       setIsTyping(true);
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: "•••",
-          isUser: false,
-          id: "typing",
-          createdAt: new Date(),
-        },
-      ]);
-
-      // 스크롤을 아래로 이동
-      scrollViewRef.current?.scrollToEnd({ animated: true });
 
       // AI 응답 받기
       await sendMessageToAssistant(userMessage);
 
-      // 타이핑 중 메시지 제거
-      setMessages((prev) => prev.filter((msg) => msg.id !== "typing"));
       setIsTyping(false);
     } catch (error) {
       console.error("메시지 전송 중 오류:", error);
-      setMessages((prev) => prev.filter((msg) => msg.id !== "typing"));
       setIsTyping(false);
     }
   };
@@ -341,6 +327,132 @@ const ChatScreen = () => {
     });
   };
 
+  const handleRetry = async (failedMessageId: string) => {
+    // 실패한 메시지 찾기
+    const failedMessage = messages.find((msg) => msg.id === failedMessageId);
+    if (!failedMessage?.lastUserMessage) return;
+
+    // 실패한 메시지 제거
+    setMessages((prev) => prev.filter((msg) => msg.id !== failedMessageId));
+
+    // 메시지 재전송
+    await sendMessageToAssistant(failedMessage.lastUserMessage);
+  };
+
+  // 생각하는 메시지 배열 추가
+  const thinkingMessages = [
+    "답변을 생각하고 있어요...",
+    "정보를 분석하고 있어요...",
+    "최적의 답변을 준비중이에요...",
+    "조금만 기다려주세요...",
+    "거의 다 왔어요...",
+  ];
+  const [currentThinkingMessage, setCurrentThinkingMessage] = useState(0);
+  const thinkingAnimationRef = useRef<NodeJS.Timeout | null>(null);
+  const [messageOpacity] = useState(new Animated.Value(1));
+  const [colorAnimation] = useState(new Animated.Value(0));
+
+  // 색상 보간 함수 생성
+  const interpolatedColor = colorAnimation.interpolate({
+    inputRange: [0, 0.2, 0.4, 0.6, 0.8, 1],
+    outputRange: [
+      colors.accent,
+      colors.textPrimary,
+      colors.accent,
+      colors.textSecondary,
+      colors.accent,
+      colors.textPrimary,
+    ],
+  });
+
+  // 색상 애니메이션 시작
+  const startColorAnimation = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(colorAnimation, {
+          toValue: 1,
+          duration: 3000,
+          useNativeDriver: false,
+        }),
+        Animated.timing(colorAnimation, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
+  };
+
+  // 색상 애니메이션 정지
+  const stopColorAnimation = () => {
+    colorAnimation.stopAnimation();
+    colorAnimation.setValue(0);
+  };
+
+  // cleanup effect 수정
+  useEffect(() => {
+    return () => {
+      if (thinkingAnimationRef.current) {
+        clearInterval(thinkingAnimationRef.current);
+      }
+      stopColorAnimation();
+    };
+  }, []);
+
+  // 생각하는 애니메이션 시작 함수 수정
+  const startThinkingAnimation = (messageId: string) => {
+    if (thinkingAnimationRef.current) {
+      clearInterval(thinkingAnimationRef.current);
+    }
+
+    // 초기 메시지 설정
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId ? { ...msg, text: thinkingMessages[0] } : msg
+      )
+    );
+
+    // 색상 애니메이션 시작
+    startColorAnimation();
+
+    thinkingAnimationRef.current = setInterval(() => {
+      // 페이드 아웃
+      Animated.timing(messageOpacity, {
+        toValue: 0.3,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        // 메시지 변경
+        setCurrentThinkingMessage((prev) => {
+          const nextIndex = (prev + 1) % thinkingMessages.length;
+          setMessages((prevMessages) =>
+            prevMessages.map((msg) =>
+              msg.id === messageId
+                ? { ...msg, text: thinkingMessages[nextIndex] }
+                : msg
+            )
+          );
+          return nextIndex;
+        });
+
+        // 페이드 인
+        Animated.timing(messageOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 2000);
+  };
+
+  // 생각하는 애니메이션 정지
+  const stopThinkingAnimation = () => {
+    if (thinkingAnimationRef.current) {
+      clearInterval(thinkingAnimationRef.current);
+      thinkingAnimationRef.current = null;
+    }
+  };
+
   const sendMessageToAssistant = async (userMessage: string) => {
     if (!threadId || !ASSISTANT_ID) {
       console.error("스레드 ID 또는 어시스턴트 ID가 없음:", {
@@ -353,6 +465,22 @@ const ChatScreen = () => {
     try {
       setIsLoading(true);
       console.log("사용자 메시지 생성 시작");
+
+      let streamingMessageId = Date.now().toString();
+
+      // 로딩 메시지 초기화 (첫 번째 생각 메시지로 시작)
+      setMessages((prev) => [
+        ...prev,
+        {
+          text: thinkingMessages[0],
+          isUser: false,
+          id: streamingMessageId,
+          createdAt: new Date(),
+        },
+      ]);
+
+      // 생각하는 애니메이션 시작
+      startThinkingAnimation(streamingMessageId);
 
       // Assistant ID 유효성 검사
       try {
@@ -395,7 +523,6 @@ const ChatScreen = () => {
       console.log("Assistant 실행 시작");
       let run;
       try {
-        // 제목 생성을 위한 instructions 추가
         run = await openai.beta.threads.runs.create(threadId, {
           assistant_id: ASSISTANT_ID,
           instructions:
@@ -412,7 +539,7 @@ const ChatScreen = () => {
         throw error;
       }
 
-      // 실행 상태 확인
+      // 실행 상태 확인 및 스트리밍 응답 처리
       let runStatus = await openai.beta.threads.runs.retrieve(run.id, {
         thread_id: threadId,
       });
@@ -420,6 +547,7 @@ const ChatScreen = () => {
 
       let retryCount = 0;
       const maxStatusRetries = 30; // 30초 타임아웃
+      let accumulatedMessage = "";
 
       while (
         runStatus.status !== "completed" &&
@@ -431,6 +559,56 @@ const ChatScreen = () => {
             thread_id: threadId,
           });
           console.log("실행 상태 업데이트:", runStatus.status);
+
+          if (runStatus.status === "completed") {
+            // 생각하는 애니메이션 정지
+            stopThinkingAnimation();
+
+            const messages = await openai.beta.threads.messages.list(threadId);
+            const lastMessage = messages.data[0];
+
+            if (
+              lastMessage.role === "assistant" &&
+              lastMessage.content[0].type === "text"
+            ) {
+              const messageContent = lastMessage.content[0].text.value;
+              const titleMatch = messageContent.match(/#제목:\s*([^\n]+)/);
+              let title = "새로운 대화";
+              let content = messageContent;
+
+              if (titleMatch) {
+                title = titleMatch[1].trim();
+                content = messageContent.replace(/#제목:.*\n*/, "").trim();
+              }
+
+              // 스트리밍 효과를 위한 점진적 업데이트
+              const words = content.split(" ");
+              for (let i = 0; i < words.length; i++) {
+                accumulatedMessage += words[i] + " ";
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === streamingMessageId
+                      ? { ...msg, text: accumulatedMessage.trim() }
+                      : msg
+                  )
+                );
+                await delay(50);
+              }
+
+              // 첫 메시지인 경우에만 제목 업데이트
+              if (messages.data.length <= 2) {
+                const updatedThreads = threads.map((thread) =>
+                  thread.id === threadId
+                    ? { ...thread, title, last_message: userMessage }
+                    : thread
+                );
+                setThreads(updatedThreads);
+                await saveThreads(updatedThreads);
+              } else {
+                await updateThreadTitle(threadId, userMessage);
+              }
+            }
+          }
         } catch (error: any) {
           if (error?.error?.code === "rate_limit_exceeded") {
             const shouldRetry = await handleRateLimit();
@@ -475,72 +653,12 @@ const ChatScreen = () => {
       if (retryCount >= maxStatusRetries) {
         throw new Error("Assistant 응답 시간 초과");
       }
-
-      // 메시지 목록 가져오기
-      let messages;
-      try {
-        console.log("메시지 목록 요청");
-        messages = await openai.beta.threads.messages.list(threadId);
-        const lastMessage = messages.data[0];
-        console.log("받은 메시지:", lastMessage);
-
-        if (
-          lastMessage.role === "assistant" &&
-          lastMessage.content[0].type === "text"
-        ) {
-          const messageContent = lastMessage.content[0].text.value;
-
-          // 제목 추출
-          const titleMatch = messageContent.match(/#제목:\s*([^\n]+)/);
-          let title = "새로운 대화";
-          let content = messageContent;
-
-          if (titleMatch) {
-            title = titleMatch[1].trim();
-            // 제목 줄과 그 다음의 빈 줄들을 모두 제거
-            content = messageContent
-              .replace(/#제목:.*(\r?\n|\r)*/, "") // 제목 줄 제거
-              .trim(); // 앞뒤 공백 제거
-          }
-
-          const assistantMessage = {
-            text: content,
-            isUser: false,
-            id: lastMessage.id,
-            createdAt: new Date(lastMessage.created_at * 1000),
-          };
-
-          setMessages((prev) => [...prev, assistantMessage]);
-
-          // 첫 메시지인 경우에만 제목 업데이트
-          if (messages.data.length <= 2) {
-            // 사용자 메시지 1개, AI 응답 1개
-            const updatedThreads = threads.map((thread) =>
-              thread.id === threadId
-                ? { ...thread, title, last_message: userMessage }
-                : thread
-            );
-            setThreads(updatedThreads);
-            await saveThreads(updatedThreads);
-          } else {
-            await updateThreadTitle(threadId, userMessage);
-          }
-
-          console.log("응답 메시지 처리 완료");
-        }
-      } catch (error: any) {
-        if (error?.error?.code === "rate_limit_exceeded") {
-          const shouldRetry = await handleRateLimit();
-          if (shouldRetry) {
-            return await sendMessageToAssistant(userMessage);
-          }
-        }
-        throw error;
-      }
     } catch (error: any) {
+      stopColorAnimation();
+      // 에러 발생 시 애니메이션 정지
+      stopThinkingAnimation();
       console.error("메시지 전송 중 상세 오류:", error);
 
-      // 사용자에게 오류 메시지 표시
       const errorMessage =
         error?.error?.code === "rate_limit_exceeded"
           ? "API 사용량 제한에 도달했습니다. 잠시 후 다시 시도해주세요."
@@ -555,10 +673,14 @@ const ChatScreen = () => {
           isUser: false,
           id: Date.now().toString(),
           createdAt: new Date(),
+          error: true,
+          lastUserMessage: userMessage,
         },
       ]);
     } finally {
       setIsLoading(false);
+      stopThinkingAnimation();
+      stopColorAnimation();
     }
   };
 
@@ -853,16 +975,46 @@ const ChatScreen = () => {
                   {msg.id === "typing" ? (
                     <TypingIndicator />
                   ) : (
-                    <Text
-                      style={[
-                        styles.messageText,
-                        {
-                          color: msg.isUser ? "#FFFFFF" : colors.textPrimary,
-                        },
-                      ]}
-                    >
-                      {msg.text}
-                    </Text>
+                    <>
+                      {thinkingMessages.includes(msg.text) ? (
+                        <Animated.Text
+                          style={[
+                            styles.messageText,
+                            {
+                              opacity: messageOpacity,
+                              color: interpolatedColor,
+                            },
+                          ]}
+                        >
+                          {msg.text}
+                        </Animated.Text>
+                      ) : (
+                        <Text
+                          style={[
+                            styles.messageText,
+                            {
+                              color: msg.isUser
+                                ? "#FFFFFF"
+                                : colors.textPrimary,
+                            },
+                          ]}
+                        >
+                          {msg.text}
+                        </Text>
+                      )}
+                      {msg.error && (
+                        <TouchableOpacity
+                          style={[
+                            styles.retryButton,
+                            { backgroundColor: colors.accent },
+                          ]}
+                          onPress={() => handleRetry(msg.id)}
+                        >
+                          <Ionicons name="refresh" size={16} color="#FFFFFF" />
+                          <Text style={styles.retryButtonText}>다시 시도</Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
                   )}
                 </View>
               </View>
@@ -1310,6 +1462,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_400Regular",
     lineHeight: 24,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 0.5,
   },
   inputContainer: {
     borderTopWidth: 1,
@@ -1362,6 +1516,24 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginHorizontal: 4,
+  },
+  retryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 6,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+  },
+  thinkingDotsContainer: {
+    marginTop: 8,
+    opacity: 0.7,
   },
 });
 
