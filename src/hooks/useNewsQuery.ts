@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, InfiniteData } from "@tanstack/react-query";
 import { NewsCategory, NewsItem } from "../types/news";
 
 const getSearchQuery = (category: NewsCategory): string => {
@@ -16,48 +16,126 @@ const getSearchQuery = (category: NewsCategory): string => {
     case "crypto_altcoin":
       return "(이더리움 OR 리플 OR 솔라나 OR 알트코인) AND (시세 OR 가격 OR 전망)";
     default:
-      return "(주식 OR 증시 OR 가상자산) AND (뉴스 OR 전망 OR 이슈)";
+      return ""; // 전체 카테고리일 경우 빈 문자열 반환
   }
 };
 
-const fetchNewsData = async (category: NewsCategory): Promise<NewsItem[]> => {
-  const query = getSearchQuery(category);
+const fetchNewsData = async (
+  category: NewsCategory,
+  pageParam: number
+): Promise<{ items: NewsItem[]; nextPage: number | null }> => {
+  if (category === "all") {
+    // 전체 카테고리일 경우 각 카테고리별로 2개씩 뉴스를 가져옴
+    const categories: NewsCategory[] = [
+      "us_market",
+      "us_tech",
+      "kr_kospi",
+      "kr_kosdaq",
+      "crypto_bitcoin",
+      "crypto_altcoin",
+    ];
+    const allNews: NewsItem[] = [];
+    const seenUrls = new Set<string>();
 
-  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
-    query
-  )}&language=ko&sortBy=publishedAt&pageSize=20&apiKey=${
-    process.env.NEWS_API_KEY
-  }`;
+    for (const cat of categories) {
+      const query = getSearchQuery(cat);
+      const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
+        query
+      )}&language=ko&sortBy=publishedAt&page=${pageParam}&pageSize=2&apiKey=${
+        process.env.EXPO_PUBLIC_NEWS_API_KEY
+      }`;
 
-  const response = await fetch(url);
-  const data = await response.json();
+      const response = await fetch(url);
+      const data = await response.json();
 
-  if (data.status === "ok" && data.articles.length > 0) {
-    return data.articles.map((article: any, index: number) => ({
-      id: `${category}-${index}`,
-      title: article.title,
-      summary: article.description || "내용 없음",
-      source: article.source.name,
-      time: new Date(article.publishedAt).toLocaleString("ko-KR", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      imageUrl: article.urlToImage || "https://picsum.photos/200/200",
-      category,
-      url: article.url,
-    }));
+      if (data.status === "ok" && data.articles.length > 0) {
+        const newsItems = data.articles
+          .filter((article: any) => {
+            // URL이 이미 있는지 확인하고, 없으면 추가
+            if (seenUrls.has(article.url)) {
+              return false;
+            }
+            seenUrls.add(article.url);
+            return true;
+          })
+          .map((article: any) => ({
+            id: `${cat}-${article.url.split("/").pop() || Date.now()}`,
+            title: article.title,
+            summary: article.description || "내용 없음",
+            source: article.source.name,
+            date: article.publishedAt.split("T")[0],
+            imageUrl: article.urlToImage || "https://picsum.photos/200/200",
+            category: cat,
+            url: article.url,
+          }));
+        allNews.push(...newsItems);
+      }
+    }
+
+    return {
+      items: allNews,
+      nextPage: allNews.length > 0 ? pageParam + 1 : null,
+    };
+  } else {
+    // 특정 카테고리의 경우
+    const query = getSearchQuery(category);
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
+      query
+    )}&language=ko&sortBy=publishedAt&page=${pageParam}&pageSize=10&apiKey=${
+      process.env.EXPO_PUBLIC_NEWS_API_KEY
+    }`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === "ok" && data.articles.length > 0) {
+      const seenUrls = new Set<string>();
+      const items = data.articles
+        .filter((article: any) => {
+          if (seenUrls.has(article.url)) {
+            return false;
+          }
+          seenUrls.add(article.url);
+          return true;
+        })
+        .map((article: any) => ({
+          id: `${category}-${article.url.split("/").pop() || Date.now()}`,
+          title: article.title,
+          summary: article.description || "내용 없음",
+          source: article.source.name,
+          date: article.publishedAt.split("T")[0],
+          imageUrl: article.urlToImage || "https://picsum.photos/200/200",
+          category,
+          url: article.url,
+        }));
+
+      return {
+        items,
+        nextPage: items.length === 10 ? pageParam + 1 : null,
+      };
+    }
   }
 
   throw new Error("뉴스를 찾을 수 없습니다");
 };
 
+type NewsResponse = {
+  items: NewsItem[];
+  nextPage: number | null;
+};
+
 export const useNewsQuery = (category: NewsCategory) => {
-  return useQuery({
+  return useInfiniteQuery<
+    NewsResponse,
+    Error,
+    InfiniteData<NewsResponse>,
+    [string, NewsCategory],
+    number
+  >({
     queryKey: ["news", category],
-    queryFn: () => fetchNewsData(category),
+    queryFn: ({ pageParam = 1 }) => fetchNewsData(category, pageParam),
+    getNextPageParam: (lastPage: NewsResponse) => lastPage.nextPage,
+    initialPageParam: 1,
     staleTime: 1000 * 60 * 5, // 5분
     gcTime: 1000 * 60 * 30, // 30분
   });

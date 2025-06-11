@@ -10,6 +10,8 @@ import {
   RefreshControl,
   Linking,
   Alert,
+  Animated,
+  NativeScrollEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -17,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "../theme/colors";
 import { useNewsQuery } from "../hooks/useNewsQuery";
 import { NewsCategory, NewsItem } from "../types/news";
+import type { InfiniteData } from "@tanstack/react-query";
 
 const categories = [
   { id: "all", name: "전체" },
@@ -28,6 +31,14 @@ const categories = [
   { id: "crypto_altcoin", name: "알트코인" },
 ];
 
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}년 ${month}월 ${day}일`;
+};
+
 const SAMPLE_NEWS: NewsItem[] = [
   {
     id: "1",
@@ -35,7 +46,7 @@ const SAMPLE_NEWS: NewsItem[] = [
     summary:
       "파월 의장은 최근 물가 상승세가 여전히 목표치를 상회하고 있어 금리 인하는 시기상조라고 언급...",
     source: "WSJ",
-    time: "1시간 전",
+    date: "2024-03-21",
     imageUrl: "https://picsum.photos/200/200",
     category: "us_market",
     url: "https://www.wsj.com",
@@ -46,7 +57,7 @@ const SAMPLE_NEWS: NewsItem[] = [
     summary:
       "AI 수요 증가로 인한 메모리 반도체 가격 상승이 실적 개선을 견인...",
     source: "연합뉴스",
-    time: "2시간 전",
+    date: "2024-03-21",
     imageUrl: "https://picsum.photos/200/201",
     category: "kr_kospi",
     url: "https://www.yna.co.kr",
@@ -56,7 +67,7 @@ const SAMPLE_NEWS: NewsItem[] = [
     title: "비트코인, 7만달러 돌파",
     summary: "현물 ETF 순매수세와 반감기 앞둔 수급 기대감으로 상승세 지속...",
     source: "CoinDesk",
-    time: "30분 전",
+    date: "2024-03-21",
     imageUrl: "https://picsum.photos/200/202",
     category: "crypto_bitcoin",
     url: "https://www.coindesk.com",
@@ -72,24 +83,148 @@ const getDomainFromUrl = (url: string) => {
   }
 };
 
+const SkeletonNewsCard = ({
+  colors,
+}: {
+  colors: ReturnType<typeof useThemeColors>;
+}) => {
+  const animatedValue = new Animated.Value(0);
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const opacity = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  return (
+    <View
+      style={[
+        styles.newsCard,
+        {
+          backgroundColor: colors.cardBackground,
+          marginHorizontal: 16,
+          marginBottom: 16,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.imageContainer,
+          { marginVertical: 12, marginHorizontal: 12 },
+        ]}
+      >
+        <Animated.View
+          style={[
+            {
+              width: 120,
+              height: 120,
+              borderRadius: 12,
+              marginBottom: 6,
+            },
+            styles.skeleton,
+            { opacity, backgroundColor: colors.border },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.skeletonDomain,
+            styles.skeleton,
+            { opacity, backgroundColor: colors.border },
+          ]}
+        />
+      </View>
+      <View style={[styles.newsContent, { flex: 1, padding: 12 }]}>
+        <View>
+          <Animated.View
+            style={[
+              styles.skeletonTitle,
+              styles.skeleton,
+              { opacity, backgroundColor: colors.border },
+            ]}
+          />
+        </View>
+        <View style={[styles.newsFooter, { marginTop: 8 }]}>
+          <Animated.View
+            style={[
+              styles.skeletonTime,
+              styles.skeleton,
+              { opacity, backgroundColor: colors.border },
+            ]}
+          />
+        </View>
+      </View>
+    </View>
+  );
+};
+
+type NewsResponse = {
+  items: NewsItem[];
+  nextPage: number | null;
+};
+
 const MarketNewsScreen = () => {
   const navigation = useNavigation();
   const colors = useThemeColors();
   const [selectedCategory, setSelectedCategory] = useState<NewsCategory>("all");
 
   const {
-    data: news,
+    data,
     isLoading,
     isError,
     error,
     refetch,
     isFetching,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
   } = useNewsQuery(selectedCategory);
 
-  const filteredNews = news || SAMPLE_NEWS;
+  const allNews = React.useMemo(() => {
+    const newsItems =
+      (data as InfiniteData<NewsResponse>)?.pages.flatMap(
+        (page) => page.items
+      ) ?? [];
+    // URL을 기준으로 중복 제거
+    const uniqueNews = newsItems.filter(
+      (news, index, self) => index === self.findIndex((n) => n.url === news.url)
+    );
+    return uniqueNews;
+  }, [data]);
 
   const onRefresh = () => {
     refetch();
+  };
+
+  const handleLoadMore = () => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  };
+
+  const handleScroll = (event: NativeScrollEvent) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event;
+    const isCloseToBottom =
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
+
+    if (isCloseToBottom) {
+      handleLoadMore();
+    }
   };
 
   const handleNewsPress = async (url: string) => {
@@ -106,6 +241,16 @@ const MarketNewsScreen = () => {
         { text: "확인" },
       ]);
     }
+  };
+
+  const renderFooter = () => {
+    if (!isFetchingNextPage) return null;
+
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color={colors.accent} />
+      </View>
+    );
   };
 
   return (
@@ -181,12 +326,19 @@ const MarketNewsScreen = () => {
       <ScrollView
         style={styles.newsList}
         refreshControl={
-          <RefreshControl refreshing={isFetching} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={isFetching && !isFetchingNextPage}
+            onRefresh={onRefresh}
+          />
         }
+        onScroll={({ nativeEvent }) => handleScroll(nativeEvent)}
+        scrollEventThrottle={400}
       >
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.accent} />
+          <View>
+            {[1, 2, 3, 4, 5].map((index) => (
+              <SkeletonNewsCard key={index} colors={colors} />
+            ))}
           </View>
         ) : isError ? (
           <View style={styles.errorContainer}>
@@ -203,52 +355,46 @@ const MarketNewsScreen = () => {
             </TouchableOpacity>
           </View>
         ) : (
-          filteredNews.map((news) => (
-            <TouchableOpacity
-              key={news.id}
-              style={[
-                styles.newsCard,
-                { backgroundColor: colors.cardBackground },
-              ]}
-              onPress={() => handleNewsPress(news.url)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.imageContainer}>
-                <Image
-                  source={{ uri: news.imageUrl }}
-                  style={styles.newsImage}
-                />
-                <Text style={[styles.domain, { color: colors.accent }]}>
-                  {getDomainFromUrl(news.url)}
-                </Text>
-              </View>
-              <View style={styles.newsContent}>
-                <View>
-                  <Text
-                    style={[styles.newsTitle, { color: colors.textPrimary }]}
-                  >
-                    {news.title}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.newsSummary,
-                      { color: colors.textSecondary },
-                    ]}
-                    numberOfLines={2}
-                  >
-                    {news.summary}
+          <>
+            {allNews.map((news: NewsItem) => (
+              <TouchableOpacity
+                key={news.id}
+                style={[
+                  styles.newsCard,
+                  { backgroundColor: colors.cardBackground },
+                ]}
+                onPress={() => handleNewsPress(news.url)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.imageContainer}>
+                  <Image
+                    source={{ uri: news.imageUrl }}
+                    style={styles.newsImage}
+                  />
+                  <Text style={[styles.domain, { color: colors.accent }]}>
+                    {getDomainFromUrl(news.url)}
                   </Text>
                 </View>
-                <View style={styles.newsFooter}>
-                  <Text
-                    style={[styles.newsTime, { color: colors.textSecondary }]}
-                  >
-                    {news.time}
-                  </Text>
+                <View style={styles.newsContent}>
+                  <View>
+                    <Text
+                      style={[styles.newsTitle, { color: colors.textPrimary }]}
+                    >
+                      {news.title}
+                    </Text>
+                  </View>
+                  <View style={styles.newsFooter}>
+                    <Text
+                      style={[styles.newsTime, { color: colors.textSecondary }]}
+                    >
+                      {formatDate(news.date)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))
+              </TouchableOpacity>
+            ))}
+            {renderFooter()}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -340,37 +486,36 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 22,
   },
-  newsSummary: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 20,
-    marginBottom: 12,
-    opacity: 0.8,
-  },
   newsFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: "auto",
   },
-  newsSource: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
-  },
   newsTime: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     opacity: 0.6,
+    minWidth: 90,
   },
   loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    paddingTop: 16,
+  },
+  skeleton: {
+    borderRadius: 12,
+  },
+  skeletonTitle: {
+    height: 44,
+    width: "100%",
+  },
+  skeletonDomain: {
+    height: 13,
+    width: 80,
+    marginTop: 4,
+  },
+  skeletonTime: {
+    height: 12,
+    width: 60,
   },
   errorContainer: {
     flex: 1,
@@ -394,6 +539,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
   },
-});
+  loadingFooter: {
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+} as const);
 
 export default MarketNewsScreen;

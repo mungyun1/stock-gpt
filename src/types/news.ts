@@ -12,7 +12,7 @@ export type NewsItem = {
   title: string;
   summary: string;
   source: string;
-  time: string;
+  date: string;
   imageUrl: string;
   category: NewsCategory;
   url: string;
