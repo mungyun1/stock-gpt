@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     alignItems: "center",
-    marginBottom: 100,
+    marginBottom: 60,
   },
   header: {
     alignItems: "center",
@@ -381,7 +381,6 @@ const styles = StyleSheet.create({
   buttonContainer: {
     width: "90%",
     maxWidth: 500,
-    marginBottom: 24,
   },
   primaryButton: {
     flexDirection: "row",
@@ -428,9 +427,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 12,
     paddingHorizontal: 20,
-
     gap: 8,
-    marginBottom: 16,
+    marginTop: 8,
   },
   moreButtonText: {
     fontSize: 16,

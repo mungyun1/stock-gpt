@@ -12,8 +12,7 @@ import {
   Keyboard,
   Animated,
   Dimensions,
-  Pressable,
-  Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -606,6 +605,17 @@ const ChatScreen = () => {
 
   const createNewThread = async () => {
     try {
+      // 현재 스레드가 있고 메시지가 없는 경우 새 스레드 생성을 막음
+      if (threadId && messages.length === 0) {
+        Alert.alert(
+          "알림",
+          "현재 대화에 메시지가 없습니다. 현재 대화를 이용해주세요.",
+          [{ text: "확인" }]
+        );
+        toggleSidebar();
+        return;
+      }
+
       const thread = await openai.beta.threads.create();
 
       const newThread: Thread = {
@@ -623,6 +633,7 @@ const ChatScreen = () => {
       toggleSidebar();
     } catch (error) {
       console.error("새 스레드 생성 중 오류:", error);
+      toggleSidebar();
     }
   };
 
