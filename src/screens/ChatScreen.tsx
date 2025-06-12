@@ -977,7 +977,7 @@ const ChatScreen = () => {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={[styles.container, { backgroundColor: colors.background }]}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         {/* Header */}
         <View
@@ -989,18 +989,18 @@ const ChatScreen = () => {
             },
           ]}
         >
-          <TouchableOpacity onPress={toggleSidebar}>
+          <TouchableOpacity onPress={toggleSidebar} style={styles.headerButton}>
             <Ionicons name="menu" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => navigation.navigate("Home")}
+            onPress={() => navigation.goBack()}
             style={styles.headerTitleButton}
           >
             <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
               Stock GPT
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity>
+          <TouchableOpacity style={styles.headerButton}>
             <Ionicons name="refresh" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
@@ -1008,7 +1008,10 @@ const ChatScreen = () => {
         {/* Chat Messages */}
         <ScrollView
           style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContentContainer}
+          contentContainerStyle={[
+            styles.messagesContentContainer,
+            { flexGrow: 1 },
+          ]}
           ref={scrollViewRef}
           onContentSizeChange={() =>
             scrollViewRef.current?.scrollToEnd({ animated: true })
@@ -1492,12 +1495,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 16,
-    height: 68,
+    paddingVertical: Platform.OS === "ios" ? 12 : 16,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
+    height: Platform.OS === "ios" ? 56 : 64,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitleButton: {
-    padding: 8,
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 16,
   },
   headerTitle: {
     fontSize: 20,
@@ -1508,8 +1520,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messagesContentContainer: {
-    flexGrow: 1,
     padding: 24,
+    paddingBottom: Platform.OS === "ios" ? 16 : 24,
   },
   welcomeContainer: {
     flex: 1,
