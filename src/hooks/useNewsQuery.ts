@@ -25,7 +25,7 @@ const fetchNewsData = async (
   pageParam: number
 ): Promise<{ items: NewsItem[]; nextPage: number | null }> => {
   if (category === "all") {
-    // 전체 카테고리일 경우 각 카테고리별로 2개씩 뉴스를 가져옴
+    // 전체 카테고리일 경우 각 카테고리별로 3개씩 뉴스를 가져옴 (총 18개)
     const categories: NewsCategory[] = [
       "us_market",
       "us_tech",
@@ -41,7 +41,7 @@ const fetchNewsData = async (
       const query = getSearchQuery(cat);
       const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
         query
-      )}&language=ko&sortBy=publishedAt&page=${pageParam}&pageSize=2&apiKey=${
+      )}&language=ko&sortBy=publishedAt&page=${pageParam}&pageSize=3&apiKey=${
         process.env.EXPO_PUBLIC_NEWS_API_KEY
       }`;
 
@@ -51,7 +51,6 @@ const fetchNewsData = async (
       if (data.status === "ok" && data.articles.length > 0) {
         const newsItems = data.articles
           .filter((article: any) => {
-            // URL이 이미 있는지 확인하고, 없으면 추가
             if (seenUrls.has(article.url)) {
               return false;
             }
@@ -72,12 +71,13 @@ const fetchNewsData = async (
       }
     }
 
+    // 최소 12개의 뉴스가 있을 때만 다음 페이지로 넘어가도록 수정
     return {
       items: allNews,
-      nextPage: allNews.length > 0 ? pageParam + 1 : null,
+      nextPage: allNews.length >= 12 ? pageParam + 1 : null,
     };
   } else {
-    // 특정 카테고리의 경우
+    // 특정 카테고리의 경우 10개씩 불러오기 유지
     const query = getSearchQuery(category);
     const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
       query

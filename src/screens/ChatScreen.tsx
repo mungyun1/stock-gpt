@@ -21,6 +21,9 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useThemeColors } from "../theme/colors";
 import OpenAI from "openai";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Markdown from "react-native-markdown-display";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { materialDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 type RootStackParamList = {
   Home: undefined;
@@ -673,7 +676,23 @@ const ChatScreen = () => {
     try {
       setThreadId(thread.id);
       await loadThreadMessages(thread.id);
-      toggleSidebar();
+      // 사이드바 닫기 애니메이션 실행
+      const overlayToValue = 0;
+      Animated.parallel([
+        Animated.spring(sidebarAnimation, {
+          toValue: -SIDEBAR_WIDTH,
+          useNativeDriver: true,
+          tension: 65,
+          friction: 11,
+        }),
+        Animated.timing(overlayAnimation, {
+          toValue: overlayToValue,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setIsSidebarOpen(false);
+      });
     } catch (error) {
       console.error("스레드 선택 중 오류:", error);
     }
@@ -846,6 +865,110 @@ const ChatScreen = () => {
     }
   };
 
+  // 마크다운 스타일 설정
+  const markdownStyles = {
+    body: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      fontFamily: "Inter_400Regular",
+      lineHeight: 24,
+    },
+    heading1: {
+      fontSize: 24,
+      fontFamily: "Inter_700Bold",
+      marginVertical: 16,
+      color: colors.textPrimary,
+      letterSpacing: -0.5,
+    },
+    heading2: {
+      fontSize: 20,
+      fontFamily: "Inter_600SemiBold",
+      marginVertical: 12,
+      color: colors.textPrimary,
+      letterSpacing: -0.5,
+    },
+    heading3: {
+      fontSize: 18,
+      fontFamily: "Inter_600SemiBold",
+      marginVertical: 10,
+      color: colors.textPrimary,
+      letterSpacing: -0.3,
+    },
+    paragraph: {
+      marginVertical: 8,
+    },
+    blockquote: {
+      backgroundColor: `${colors.accent}08`,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.accent,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      marginVertical: 8,
+      borderRadius: 4,
+    },
+    bullet_list: {
+      marginVertical: 8,
+    },
+    ordered_list: {
+      marginVertical: 8,
+    },
+    list_item: {
+      marginVertical: 4,
+      flexDirection: "row" as const,
+      alignItems: "flex-start" as const,
+    },
+    table: {
+      borderWidth: 1,
+      borderColor: `${colors.border}50`,
+      borderRadius: 12,
+      marginVertical: 12,
+      overflow: "hidden" as const,
+      backgroundColor: colors.cardBackground,
+    },
+    thead: {
+      backgroundColor: `${colors.accent}10`,
+      borderBottomWidth: 1,
+      borderBottomColor: `${colors.border}50`,
+    },
+    tr: {
+      flexDirection: "row" as const,
+      borderBottomWidth: 1,
+      borderBottomColor: `${colors.border}30`,
+    },
+    th: {
+      flex: 1,
+      padding: 12,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    td: {
+      flex: 1,
+      padding: 12,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    strong: {
+      fontFamily: "Inter_600SemiBold",
+      color: colors.accent,
+    },
+    em: {
+      fontStyle: "italic" as const,
+    },
+    hr: {
+      backgroundColor: `${colors.border}50`,
+      height: 1,
+      marginVertical: 16,
+    },
+    link: {
+      color: colors.accent,
+      textDecorationLine: "underline" as const,
+    },
+    image: {
+      borderRadius: 12,
+      marginVertical: 8,
+    },
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -973,19 +1096,22 @@ const ChatScreen = () => {
                         >
                           {msg.text}
                         </Animated.Text>
-                      ) : (
+                      ) : msg.isUser ? (
                         <Text
-                          style={[
-                            styles.messageText,
-                            {
-                              color: msg.isUser
-                                ? "#FFFFFF"
-                                : colors.textPrimary,
-                            },
-                          ]}
+                          style={[styles.messageText, { color: "#FFFFFF" }]}
                         >
                           {msg.text}
                         </Text>
+                      ) : (
+                        <Markdown
+                          style={markdownStyles}
+                          onLinkPress={(url: string) => {
+                            Linking.openURL(url);
+                            return false;
+                          }}
+                        >
+                          {msg.text}
+                        </Markdown>
                       )}
                       {msg.error && (
                         <TouchableOpacity

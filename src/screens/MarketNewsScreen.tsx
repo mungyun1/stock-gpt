@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -182,6 +182,8 @@ const MarketNewsScreen = () => {
   const navigation = useNavigation();
   const colors = useThemeColors();
   const [selectedCategory, setSelectedCategory] = useState<NewsCategory>("all");
+  const scrollTimer = useRef<NodeJS.Timeout | null>(null);
+  const isLoadingMore = useRef(false);
 
   const {
     data,
@@ -204,7 +206,10 @@ const MarketNewsScreen = () => {
     const uniqueNews = newsItems.filter(
       (news, index, self) => index === self.findIndex((n) => n.url === news.url)
     );
-    return uniqueNews;
+    // 날짜 기준으로 최신순 정렬
+    return uniqueNews.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
   }, [data]);
 
   const onRefresh = () => {
@@ -212,20 +217,41 @@ const MarketNewsScreen = () => {
   };
 
   const handleLoadMore = () => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
+    if (!hasNextPage || isFetchingNextPage || isLoadingMore.current) {
+      return;
     }
+
+    isLoadingMore.current = true;
+    fetchNextPage().finally(() => {
+      isLoadingMore.current = false;
+    });
   };
 
   const handleScroll = (event: NativeScrollEvent) => {
-    const { layoutMeasurement, contentOffset, contentSize } = event;
-    const isCloseToBottom =
-      layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
-
-    if (isCloseToBottom) {
-      handleLoadMore();
+    if (scrollTimer.current) {
+      clearTimeout(scrollTimer.current);
     }
+
+    scrollTimer.current = setTimeout(() => {
+      const { layoutMeasurement, contentOffset, contentSize } = event;
+      const paddingToBottom = 50;
+      const isCloseToBottom =
+        layoutMeasurement.height + contentOffset.y >=
+        contentSize.height - paddingToBottom;
+
+      if (isCloseToBottom) {
+        handleLoadMore();
+      }
+    }, 150);
   };
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimer.current) {
+        clearTimeout(scrollTimer.current);
+      }
+    };
+  }, []);
 
   const handleNewsPress = async (url: string) => {
     try {
@@ -332,7 +358,7 @@ const MarketNewsScreen = () => {
           />
         }
         onScroll={({ nativeEvent }) => handleScroll(nativeEvent)}
-        scrollEventThrottle={400}
+        scrollEventThrottle={16}
       >
         {isLoading ? (
           <View>
