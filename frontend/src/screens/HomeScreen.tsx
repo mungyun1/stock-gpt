@@ -8,6 +8,7 @@ import {
   Animated,
   Modal,
   Pressable,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -62,11 +63,26 @@ const HomeScreen = () => {
           {/* 헤더 섹션 */}
           <View style={styles.headerContainer}>
             <View style={styles.header}>
-              <Text style={[styles.title, { color: colors.textPrimary }]}>
-                Stock GPT
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                AI 주식 투자 어드바이저
+              <Image
+                source={require("../../assets/logo.png")}
+                style={{
+                  width: 240,
+                  height: 120,
+                  resizeMode: "contain",
+                }}
+              />
+              <Text
+                style={[
+                  styles.subtitle,
+                  {
+                    color: colors.textSecondary,
+                    fontSize: 20,
+                    marginBottom: 32,
+                    opacity: 0.7,
+                  },
+                ]}
+              >
+                투자 조언을 받아보세요!
               </Text>
             </View>
           </View>
@@ -358,12 +374,13 @@ const styles = StyleSheet.create({
   },
   mainSection: {
     alignItems: "center",
-    paddingVertical: 24,
+    paddingVertical: 32,
     width: "100%",
   },
   headerContainer: {
     alignItems: "center",
-    marginBottom: 60,
+    marginBottom: 40,
+    marginTop: 48,
   },
   header: {
     alignItems: "center",
@@ -374,13 +391,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: "Inter_400Regular",
-    opacity: 0.8,
+    opacity: 0.7,
+    marginBottom: 32,
   },
   buttonContainer: {
-    width: "90%",
+    width: "92%",
     maxWidth: 500,
+    padding: 32,
+    marginHorizontal: 0,
   },
   primaryButton: {
     flexDirection: "row",

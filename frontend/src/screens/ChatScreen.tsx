@@ -13,17 +13,16 @@ import {
   Animated,
   Dimensions,
   Alert,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useThemeColors } from "../theme/colors";
 import OpenAI from "openai";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Markdown from "react-native-markdown-display";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { materialDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 type RootStackParamList = {
   Home: undefined;
@@ -54,6 +53,41 @@ type Thread = {
   last_message?: string;
 };
 
+// 백엔드 응답 타입 정의
+interface StockAnalysisResponse {
+  stock_info: any; // yfinance에서 반환하는 데이터 타입
+  analysis: string;
+}
+
+interface MarketAnalysisResponse {
+  market_data: {
+    [key: string]: {
+      name?: string;
+      current_price?: number;
+      change_percent?: number;
+      previous_close?: number;
+      volume?: number;
+      price_history?: number[];
+      volume_history?: number[];
+      error?: string;
+      rate?: number;
+      change?: number;
+    };
+  };
+  analysis: string;
+}
+
+// 백엔드 요청 타입 정의
+interface StockAnalysisRequest {
+  ticker: string;
+}
+
+interface MarketAnalysisRequest {
+  indices: string[];
+  lookback_days?: number;
+  include_news?: boolean;
+}
+
 const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.75;
 const THREADS_STORAGE_KEY = "@stock_gpt_threads";
 
@@ -70,6 +104,7 @@ const ChatScreen = () => {
   const sidebarAnimation = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const overlayAnimation = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
 
   // 타이핑 애니메이션을 위한 Animated.Value 배열
   const typingDots = useRef([
@@ -120,6 +155,16 @@ const ChatScreen = () => {
       stopTypingAnimation();
     }
   }, [isTyping]);
+
+  // React Navigation 제스처 비활성화
+  useFocusEffect(
+    React.useCallback(() => {
+      navigation.setOptions({
+        gestureEnabled: false,
+        gestureDirection: "horizontal",
+      });
+    }, [navigation])
+  );
 
   // 타이핑 애니메이션 컴포넌트
   const TypingIndicator = () => (
@@ -255,6 +300,55 @@ const ChatScreen = () => {
     }
   };
 
+  const BACKEND_URL = "http://localhost:8000"; // 백엔드 서버 URL
+
+  // 주식 티커 심볼 패턴 (예: AAPL, MSFT, 005930.KS)
+  const STOCK_TICKER_PATTERN = /\b[A-Z]{1,5}(\.[A-Z]{2})?\b/;
+
+  // 시장 분석 관련 키워드
+  const MARKET_KEYWORDS = [
+    "시장",
+    "마켓",
+    "market",
+    "금리",
+    "환율",
+    "interest",
+    "rate",
+    "S&P",
+    "SP500",
+    "나스닥",
+    "NASDAQ",
+    "코스피",
+    "KOSPI",
+    "코스닥",
+    "KOSDAQ",
+    "증시",
+    "지수",
+    "index",
+    "글로벌",
+    "global",
+  ];
+
+  // 입력 메시지 분석
+  const analyzeUserInput = (
+    message: string
+  ): "stock" | "market" | "general" => {
+    // 대소문자 구분 없이 검색하기 위해 소문자로 변환
+    const lowerMessage = message.toLowerCase();
+
+    // 티커 심볼이 있는지 확인
+    const hasStockTicker = STOCK_TICKER_PATTERN.test(message);
+
+    // 시장 분석 키워드가 있는지 확인
+    const hasMarketKeyword = MARKET_KEYWORDS.some((keyword) =>
+      lowerMessage.includes(keyword.toLowerCase())
+    );
+
+    if (hasStockTicker) return "stock";
+    if (hasMarketKeyword) return "market";
+    return "general";
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -263,25 +357,18 @@ const ChatScreen = () => {
 
     try {
       if (!threadId) {
-        // 새 스레드 생성
         const thread = await openai.beta.threads.create();
-        console.log("새 스레드 생성됨:", thread.id);
-
-        // GPT로 제목 생성
         const generatedTitle = await generateThreadTitle(userMessage);
-
         const newThread: Thread = {
           id: thread.id,
           title: generatedTitle,
           created_at: new Date(),
         };
-
         setThreadId(thread.id);
         setThreads((prev) => [newThread, ...prev]);
         await saveThreads([newThread, ...threads]);
       }
 
-      // 사용자 메시지 추가
       setMessages((prev) => [
         ...prev,
         {
@@ -294,8 +381,93 @@ const ChatScreen = () => {
 
       setIsTyping(true);
 
-      // AI 응답 받기
-      await sendMessageToAssistant(userMessage);
+      const messageType = analyzeUserInput(userMessage);
+      console.log(`메시지 분석 결과: ${messageType}`);
+
+      let analysisResult: StockAnalysisResponse | MarketAnalysisResponse;
+
+      if (messageType === "stock") {
+        const ticker = userMessage.match(STOCK_TICKER_PATTERN)?.[0] || "";
+        console.log(`주식 분석 요청 - 티커: ${ticker}`);
+
+        try {
+          console.log(`${BACKEND_URL}/analyze 요청 시작`);
+          const response = await fetch(`${BACKEND_URL}/analyze`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ ticker } as StockAnalysisRequest),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          analysisResult = (await response.json()) as StockAnalysisResponse;
+          console.log(`주식 분석 완료 - ${ticker}:`, {
+            hasStockInfo: !!analysisResult.stock_info,
+            analysisLength: analysisResult.analysis.length,
+          });
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              text: analysisResult.analysis,
+              isUser: false,
+              id: Date.now().toString(),
+              createdAt: new Date(),
+            },
+          ]);
+        } catch (error) {
+          console.error("주식 분석 요청 실패:", error);
+          await sendMessageToAssistant(userMessage);
+        }
+      } else if (messageType === "market") {
+        const marketRequest: MarketAnalysisRequest = {
+          indices: ["^GSPC", "^IXIC", "^KS11"],
+          lookback_days: 30,
+        };
+
+        console.log("시장 분석 요청:", marketRequest);
+
+        try {
+          console.log(`${BACKEND_URL}/market-analyze 요청 시작`);
+          const response = await fetch(`${BACKEND_URL}/market-analyze`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(marketRequest),
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          analysisResult = (await response.json()) as MarketAnalysisResponse;
+          console.log("시장 분석 완료:", {
+            indices: Object.keys(analysisResult.market_data),
+            analysisLength: analysisResult.analysis.length,
+          });
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              text: analysisResult.analysis,
+              isUser: false,
+              id: Date.now().toString(),
+              createdAt: new Date(),
+            },
+          ]);
+        } catch (error) {
+          console.error("시장 분석 요청 실패:", error);
+          await sendMessageToAssistant(userMessage);
+        }
+      } else {
+        console.log("일반 대화 처리 - OpenAI Assistant 사용");
+        await sendMessageToAssistant(userMessage);
+      }
 
       setIsTyping(false);
     } catch (error) {
@@ -488,11 +660,6 @@ const ChatScreen = () => {
       // Assistant ID 유효성 검사
       try {
         const assistant = await openai.beta.assistants.retrieve(ASSISTANT_ID);
-        console.log("Assistant 정보:", {
-          name: assistant.name,
-          model: assistant.model,
-          instructions: assistant.instructions?.substring(0, 50) + "...",
-        });
       } catch (error: any) {
         if (error?.error?.code === "rate_limit_exceeded") {
           const shouldRetry = await handleRateLimit();
@@ -523,7 +690,6 @@ const ChatScreen = () => {
       }
 
       // Assistant 실행
-      console.log("Assistant 실행 시작");
       let run;
       try {
         run = await openai.beta.threads.runs.create(threadId, {
@@ -1146,7 +1312,7 @@ const ChatScreen = () => {
             },
           ]}
         >
-          <View
+          <Pressable
             style={[
               styles.inputWrapper,
               {
@@ -1154,8 +1320,10 @@ const ChatScreen = () => {
                 borderColor: colors.border,
               },
             ]}
+            onPress={() => inputRef.current && inputRef.current.focus()}
           >
             <TextInput
+              ref={inputRef}
               style={[
                 styles.input,
                 {
@@ -1201,7 +1369,7 @@ const ChatScreen = () => {
                 }}
               />
             </TouchableOpacity>
-          </View>
+          </Pressable>
         </View>
 
         {/* Overlay */}
@@ -1599,7 +1767,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 20,
     paddingHorizontal: 20,
-    paddingVertical: Platform.OS === "ios" ? 12 : 14,
+    paddingVertical: 8,
     borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: {
@@ -1612,12 +1780,13 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: "Inter_400Regular",
     paddingTop: 0,
     paddingBottom: 0,
-    minHeight: 24,
+    minHeight: 20,
     maxHeight: 120,
+    lineHeight: 20,
   },
   sendButton: {
     width: 40,
