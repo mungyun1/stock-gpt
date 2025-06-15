@@ -202,60 +202,49 @@ const ChatScreen = () => {
   const ASSISTANT_ID = process.env.EXPO_PUBLIC_OPENAI_ASSISTANT_ID;
 
   useEffect(() => {
-    const loadAndInitialize = async () => {
-      try {
-        const storedThreads = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
-        if (storedThreads) {
-          const parsedThreads = JSON.parse(storedThreads).map(
-            (thread: Thread) => ({
-              ...thread,
-              created_at: new Date(thread.created_at),
-            })
-          );
-          setThreads(parsedThreads);
-
-          // 가장 최근 스레드 선택 및 메시지 로드
-          if (parsedThreads.length > 0) {
-            const mostRecentThread = parsedThreads[0];
-            setThreadId(mostRecentThread.id);
-            await loadThreadMessages(mostRecentThread.id);
-          }
-        } else {
-          // 저장된 스레드가 없을 경우에만 새 스레드 초기화
-          await initializeThread();
-        }
-      } catch (error) {
-        console.error("스레드 초기화 중 오류:", error);
-      }
-    };
-
-    loadAndInitialize();
-  }, []); // 컴포넌트 마운트 시 한 번만 실행
+    initializeThread();
+  }, []);
 
   const initializeThread = async () => {
     try {
-      console.log("스레드 초기화 시작");
-      console.log(
-        "API Key:",
-        process.env.EXPO_PUBLIC_OPENAI_API_KEY?.substring(0, 5) + "..."
+      // 항상 최신 스레드 목록을 AsyncStorage에서 직접 읽음
+      const storedThreads = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
+      let threadsFromStorage: Thread[] = [];
+      if (storedThreads) {
+        threadsFromStorage = JSON.parse(storedThreads).map(
+          (thread: Thread) => ({
+            ...thread,
+            created_at: new Date(thread.created_at),
+          })
+        );
+      }
+      setThreads(threadsFromStorage);
+
+      // 새로운 대화 스레드가 있는지 확인
+      const newThread = threadsFromStorage.find(
+        (thread) => thread.title === "새로운 대화"
       );
-      console.log("Assistant ID:", ASSISTANT_ID);
 
-      // 새 스레드 생성
-      const thread = await openai.beta.threads.create();
-      console.log("새 스레드 생성됨:", thread.id);
-
-      setThreadId(thread.id);
-
-      // 새 스레드를 스레드 목록에 추가
-      const newThread: Thread = {
-        id: thread.id,
-        title: "새로운 대화",
-        created_at: new Date(),
-      };
-
-      setThreads((prev) => [newThread, ...prev]);
-      await saveThreads([newThread, ...threads]);
+      if (newThread) {
+        // 새로운 대화 스레드가 있으면 그 스레드로 이동
+        console.log("기존 새로운 대화 스레드로 이동:", newThread.id);
+        setThreadId(newThread.id);
+        setMessages([]);
+      } else {
+        // 새로운 대화 스레드가 없으면 새로 생성
+        console.log("새로운 대화 스레드 생성");
+        const thread = await openai.beta.threads.create();
+        const newThreadObj: Thread = {
+          id: thread.id,
+          title: "새로운 대화",
+          created_at: new Date(),
+        };
+        const updatedThreads = [newThreadObj, ...threadsFromStorage];
+        setThreads(updatedThreads);
+        setThreadId(thread.id);
+        setMessages([]);
+        await saveThreads(updatedThreads);
+      }
     } catch (error) {
       console.error("스레드 초기화 중 오류:", error);
     }
@@ -263,9 +252,15 @@ const ChatScreen = () => {
 
   const saveThreads = async (updatedThreads: Thread[]) => {
     try {
+      // 최신 순서로 정렬하여 저장
+      const sortedThreads = updatedThreads.sort(
+        (a: Thread, b: Thread) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
       await AsyncStorage.setItem(
         THREADS_STORAGE_KEY,
-        JSON.stringify(updatedThreads)
+        JSON.stringify(sortedThreads)
       );
     } catch (error) {
       console.error("스레드 저장 중 오류:", error);
@@ -357,16 +352,30 @@ const ChatScreen = () => {
 
     try {
       if (!threadId) {
-        const thread = await openai.beta.threads.create();
-        const generatedTitle = await generateThreadTitle(userMessage);
-        const newThread: Thread = {
-          id: thread.id,
-          title: generatedTitle,
-          created_at: new Date(),
-        };
-        setThreadId(thread.id);
-        setThreads((prev) => [newThread, ...prev]);
-        await saveThreads([newThread, ...threads]);
+        // 새로운 대화 스레드가 있는지 확인
+        const newThread = threads.find(
+          (thread) => thread.title === "새로운 대화"
+        );
+
+        if (newThread) {
+          // 새로운 대화 스레드가 있으면 그 스레드 사용
+          console.log("기존 새로운 대화 스레드 사용:", newThread.id);
+          setThreadId(newThread.id);
+        } else {
+          // 새로운 대화 스레드가 없을 때만 새로 생성
+          const thread = await openai.beta.threads.create();
+          const newThreadObj: Thread = {
+            id: thread.id,
+            title: "새로운 대화",
+            created_at: new Date(),
+          };
+          setThreadId(thread.id);
+          setThreads((prevThreads) => {
+            const updatedThreads = [newThreadObj, ...prevThreads];
+            saveThreads(updatedThreads); // 비동기로 저장
+            return updatedThreads;
+          });
+        }
       }
 
       setMessages((prev) => [
@@ -378,6 +387,21 @@ const ChatScreen = () => {
           createdAt: new Date(),
         },
       ]);
+
+      // 첫 메시지 전송 시 '새로운 대화' 스레드의 제목을 변경
+      if (threadId) {
+        const currentThread = threads.find((t) => t.id === threadId);
+        if (currentThread && currentThread.title === "새로운 대화") {
+          const generatedTitle = await generateThreadTitle(userMessage);
+          const updatedThreads = threads.map((t) =>
+            t.id === threadId
+              ? { ...t, title: generatedTitle, last_message: userMessage }
+              : t
+          );
+          setThreads(updatedThreads);
+          await saveThreads(updatedThreads);
+        }
+      }
 
       setIsTyping(true);
 
@@ -864,17 +888,28 @@ const ChatScreen = () => {
     }
   };
 
-  const handleDeleteThread = async (threadId: string) => {
+  const handleDeleteThread = async (threadIdToDelete: string) => {
     try {
-      await openai.beta.threads.delete(threadId);
-      const updatedThreads = threads.filter((t) => t.id !== threadId);
+      await openai.beta.threads.delete(threadIdToDelete);
+      const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
+
       setThreads(updatedThreads);
       await saveThreads(updatedThreads);
 
-      if (threadId === threadId) {
-        setThreadId(null);
-        setMessages([]);
+      // 현재 선택된 스레드가 삭제된 경우
+      if (threadId === threadIdToDelete) {
+        if (updatedThreads.length > 0) {
+          // 가장 최근 스레드로 이동
+          const mostRecentThread = updatedThreads[0];
+          setThreadId(mostRecentThread.id);
+          await loadThreadMessages(mostRecentThread.id);
+        } else {
+          // 스레드가 모두 삭제된 경우
+          setThreadId(null);
+          setMessages([]);
+        }
       }
+      // '새로운 대화'를 삭제해도 자동 생성하지 않음!
     } catch (error) {
       console.error("스레드 삭제 중 오류:", error);
     }
@@ -897,35 +932,96 @@ const ChatScreen = () => {
 
   const createNewThread = async () => {
     try {
-      // 현재 스레드가 있고 메시지가 없는 경우 새 스레드 생성을 막음
-      if (threadId && messages.length === 0) {
-        Alert.alert(
-          "알림",
-          "현재 대화에 메시지가 없습니다. 현재 대화를 이용해주세요.",
-          [{ text: "확인" }]
+      // 항상 최신 스레드 목록을 AsyncStorage에서 직접 읽음
+      const storedThreads = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
+      let threadsFromStorage: Thread[] = [];
+      if (storedThreads) {
+        threadsFromStorage = JSON.parse(storedThreads).map(
+          (thread: Thread) => ({
+            ...thread,
+            created_at: new Date(thread.created_at),
+          })
         );
-        toggleSidebar();
+      }
+
+      // 대화 내용이 없는 "새로운 대화" 스레드가 있는지 확인
+      const emptyNewThread = threadsFromStorage.find(
+        (thread) => thread.title === "새로운 대화" && !thread.last_message
+      );
+
+      if (emptyNewThread) {
+        // 빈 "새로운 대화" 스레드가 있으면 그걸로 이동
+        setThreadId(emptyNewThread.id);
+        setMessages([]);
+        // 사이드바 닫기
+        const overlayToValue = 0;
+        Animated.parallel([
+          Animated.spring(sidebarAnimation, {
+            toValue: -SIDEBAR_WIDTH,
+            useNativeDriver: true,
+            tension: 65,
+            friction: 11,
+          }),
+          Animated.timing(overlayAnimation, {
+            toValue: overlayToValue,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setIsSidebarOpen(false);
+        });
         return;
       }
 
+      // 빈 "새로운 대화" 스레드가 없으면 새로 생성
       const thread = await openai.beta.threads.create();
-
-      const newThread: Thread = {
+      const newThreadObj: Thread = {
         id: thread.id,
         title: "새로운 대화",
         created_at: new Date(),
       };
-
-      const updatedThreads = [newThread, ...threads];
+      const updatedThreads = [newThreadObj, ...threadsFromStorage];
       setThreads(updatedThreads);
-      await saveThreads(updatedThreads);
-
       setThreadId(thread.id);
       setMessages([]);
-      toggleSidebar();
+      await saveThreads(updatedThreads);
+
+      // 사이드바 닫기
+      const overlayToValue = 0;
+      Animated.parallel([
+        Animated.spring(sidebarAnimation, {
+          toValue: -SIDEBAR_WIDTH,
+          useNativeDriver: true,
+          tension: 65,
+          friction: 11,
+        }),
+        Animated.timing(overlayAnimation, {
+          toValue: overlayToValue,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setIsSidebarOpen(false);
+      });
     } catch (error) {
       console.error("새 스레드 생성 중 오류:", error);
-      toggleSidebar();
+      // 에러 발생 시에도 사이드바 닫기
+      const overlayToValue = 0;
+      Animated.parallel([
+        Animated.spring(sidebarAnimation, {
+          toValue: -SIDEBAR_WIDTH,
+          useNativeDriver: true,
+          tension: 65,
+          friction: 11,
+        }),
+        Animated.timing(overlayAnimation, {
+          toValue: overlayToValue,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setIsSidebarOpen(false);
+      });
     }
   };
 
@@ -1413,7 +1509,7 @@ const ChatScreen = () => {
                 <Text
                   style={[styles.sidebarTitle, { color: colors.textPrimary }]}
                 >
-                  대화 목록
+                  대화 목록 ({threads.length})
                 </Text>
                 <TouchableOpacity
                   style={styles.closeButton}
