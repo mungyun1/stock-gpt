@@ -44,10 +44,13 @@ const FeatureButtons: React.FC = () => {
           ]}
           onPress={() => navigation.navigate("Calendar")}
         >
-          <Ionicons name="calendar" size={24} color={colors.accent} />
+          <View style={[styles.iconContainer, { backgroundColor: "#E3F2FD" }]}>
+            <Ionicons name="calendar" size={20} color="#1976D2" />
+          </View>
           <Text style={[styles.secondaryButtonText, { color: colors.accent }]}>
             캘린더
           </Text>
+          <Text style={styles.buttonSubtext}>일정 관리</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -57,11 +60,51 @@ const FeatureButtons: React.FC = () => {
           ]}
           onPress={() => navigation.navigate("MarketNews")}
         >
-          <FontAwesome5 name="newspaper" size={24} color={colors.accent} />
+          <View style={[styles.iconContainer, { backgroundColor: "#FFF3E0" }]}>
+            <FontAwesome5 name="newspaper" size={18} color="#F57C00" />
+          </View>
           <Text style={[styles.secondaryButtonText, { color: colors.accent }]}>
             시장 동향
           </Text>
+          <Text style={styles.buttonSubtext}>뉴스 & 분석</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.secondaryButtonsRow}>
+        <TouchableOpacity
+          style={[
+            styles.secondaryButton,
+            { backgroundColor: colors.background },
+          ]}
+          onPress={() => navigation.navigate("StockRecommendation")}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: "#E8F5E8" }]}>
+            <MaterialCommunityIcons
+              name="trending-up"
+              size={20}
+              color="#388E3C"
+            />
+          </View>
+          <Text style={[styles.secondaryButtonText, { color: colors.accent }]}>
+            주식 추천
+          </Text>
+          <Text style={styles.buttonSubtext}>TOP5 종목</Text>
+        </TouchableOpacity>
+
+        <View
+          style={[
+            styles.secondaryButton,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: "#F3E5F5" }]}>
+            <Ionicons name="settings-outline" size={20} color="#7B1FA2" />
+          </View>
+          <Text style={[styles.secondaryButtonText, { color: colors.accent }]}>
+            설정
+          </Text>
+          <Text style={styles.buttonSubtext}>앱 설정</Text>
+        </View>
       </View>
     </View>
   );
@@ -102,16 +145,32 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-    padding: 20,
+    padding: 16,
     borderRadius: 16,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "rgba(128, 128, 128, 0.1)",
+    minHeight: 100,
+    justifyContent: "center",
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
   },
   secondaryButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
-    marginTop: 8,
+    marginBottom: 2,
+  },
+  buttonSubtext: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    color: "#999999",
+    textAlign: "center",
   },
 });
 

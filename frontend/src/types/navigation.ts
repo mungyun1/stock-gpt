@@ -3,4 +3,5 @@ export type RootStackParamList = {
   Chat: undefined;
   Calendar: undefined;
   MarketNews: undefined;
+  StockRecommendation: undefined;
 };
