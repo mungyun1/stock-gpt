@@ -101,10 +101,13 @@ const ChatScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const sidebarAnimation = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const overlayAnimation = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+  const titleInputRef = useRef<TextInput>(null);
 
   // 타이핑 애니메이션을 위한 Animated.Value 배열
   const typingDots = useRef([
@@ -220,18 +223,55 @@ const ChatScreen = () => {
       }
       setThreads(threadsFromStorage);
 
-      // 새로운 대화 스레드가 있는지 확인
-      const newThread = threadsFromStorage.find(
-        (thread) => thread.title === "새로운 대화"
-      );
+      // 스레드가 있는 경우 가장 최근 스레드를 찾음
+      if (threadsFromStorage.length > 0) {
+        // 최신 순서로 정렬 (이미 정렬되어 있을 수도 있지만 확실히 하기 위해)
+        const sortedThreads = threadsFromStorage.sort(
+          (a: Thread, b: Thread) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
 
-      if (newThread) {
-        // 새로운 대화 스레드가 있으면 그 스레드로 이동
-        console.log("기존 새로운 대화 스레드로 이동:", newThread.id);
-        setThreadId(newThread.id);
-        setMessages([]);
+        // 실제 대화가 있는 가장 최근 스레드를 찾음 (last_message가 있는 스레드 우선)
+        let mostRecentThread = sortedThreads[0];
+
+        // last_message가 있는 스레드가 있는지 확인
+        const threadWithMessages = sortedThreads.find(
+          (thread) => thread.last_message
+        );
+        if (threadWithMessages) {
+          mostRecentThread = threadWithMessages;
+        }
+
+        // 가장 최근 스레드가 실제로 존재하는지 확인
+        try {
+          await openai.beta.threads.retrieve(mostRecentThread.id);
+          console.log(
+            "가장 최근 스레드로 이동:",
+            mostRecentThread.title,
+            mostRecentThread.id
+          );
+          setThreadId(mostRecentThread.id);
+          await loadThreadMessages(mostRecentThread.id);
+        } catch (error: any) {
+          console.log("가장 최근 스레드가 존재하지 않음, 새로 생성:", error);
+          // 스레드가 존재하지 않으면 새로 생성
+          const thread = await openai.beta.threads.create();
+          const newThreadObj: Thread = {
+            id: thread.id,
+            title: "새로운 대화",
+            created_at: new Date(),
+          };
+          const updatedThreads = [
+            newThreadObj,
+            ...threadsFromStorage.filter((t) => t.id !== mostRecentThread.id),
+          ];
+          setThreads(updatedThreads);
+          setThreadId(thread.id);
+          setMessages([]);
+          await saveThreads(updatedThreads);
+        }
       } else {
-        // 새로운 대화 스레드가 없으면 새로 생성
+        // 스레드가 없으면 새로 생성
         console.log("새로운 대화 스레드 생성");
         const thread = await openai.beta.threads.create();
         const newThreadObj: Thread = {
@@ -239,7 +279,7 @@ const ChatScreen = () => {
           title: "새로운 대화",
           created_at: new Date(),
         };
-        const updatedThreads = [newThreadObj, ...threadsFromStorage];
+        const updatedThreads = [newThreadObj];
         setThreads(updatedThreads);
         setThreadId(thread.id);
         setMessages([]);
@@ -247,6 +287,9 @@ const ChatScreen = () => {
       }
     } catch (error) {
       console.error("스레드 초기화 중 오류:", error);
+      // 오류 발생 시 빈 상태로 시작
+      setThreadId(null);
+      setMessages([]);
     }
   };
 
@@ -665,6 +708,28 @@ const ChatScreen = () => {
       setIsLoading(true);
       console.log("사용자 메시지 생성 시작");
 
+      // 스레드가 실제로 존재하는지 먼저 확인
+      try {
+        await openai.beta.threads.retrieve(threadId);
+      } catch (error: any) {
+        console.error("스레드가 존재하지 않음:", threadId, error);
+        // 스레드가 존재하지 않는 경우 새로운 스레드 생성
+        const newThread = await openai.beta.threads.create();
+        const newThreadObj: Thread = {
+          id: newThread.id,
+          title: "새로운 대화",
+          created_at: new Date(),
+        };
+
+        const updatedThreads = [newThreadObj, ...threads];
+        setThreads(updatedThreads);
+        setThreadId(newThread.id);
+        await saveThreads(updatedThreads);
+
+        // 새로운 스레드로 메시지 전송
+        return await sendMessageToAssistant(userMessage);
+      }
+
       let streamingMessageId = Date.now().toString();
 
       // 로딩 메시지 초기화 (첫 번째 생각 메시지로 시작)
@@ -840,6 +905,8 @@ const ChatScreen = () => {
       const errorMessage =
         error?.error?.code === "rate_limit_exceeded"
           ? "API 사용량 제한에 도달했습니다. 잠시 후 다시 시도해주세요."
+          : error?.status === 404 || error?.error?.code === "not_found"
+          ? "스레드가 존재하지 않습니다. 새로운 대화를 시작해주세요."
           : `오류가 발생했습니다: ${
               error.message || "알 수 없는 오류가 발생했습니다"
             }`;
@@ -864,8 +931,27 @@ const ChatScreen = () => {
 
   const handleThreadSelect = async (thread: Thread) => {
     try {
-      setThreadId(thread.id);
-      await loadThreadMessages(thread.id);
+      // 스레드가 실제로 존재하는지 먼저 확인
+      try {
+        await openai.beta.threads.retrieve(thread.id);
+        setThreadId(thread.id);
+        await loadThreadMessages(thread.id);
+      } catch (error: any) {
+        console.error("선택한 스레드가 존재하지 않음:", thread.id, error);
+        // 스레드가 존재하지 않는 경우 로컬에서 제거
+        const updatedThreads = threads.filter((t) => t.id !== thread.id);
+        setThreads(updatedThreads);
+        await saveThreads(updatedThreads);
+
+        // 사용자에게 알림
+        Alert.alert(
+          "스레드 오류",
+          "이 스레드는 더 이상 존재하지 않습니다. 다른 대화를 선택해주세요.",
+          [{ text: "확인" }]
+        );
+        return;
+      }
+
       // 사이드바 닫기 애니메이션 실행
       const overlayToValue = 0;
       Animated.parallel([
@@ -890,9 +976,37 @@ const ChatScreen = () => {
 
   const handleDeleteThread = async (threadIdToDelete: string) => {
     try {
-      await openai.beta.threads.delete(threadIdToDelete);
-      const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
+      // 스레드가 실제로 존재하는지 먼저 확인
+      try {
+        await openai.beta.threads.retrieve(threadIdToDelete);
+      } catch (error: any) {
+        console.log("스레드가 이미 존재하지 않음:", threadIdToDelete);
+        // 스레드가 이미 삭제되었거나 존재하지 않는 경우 로컬에서만 제거
+        const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
+        setThreads(updatedThreads);
+        await saveThreads(updatedThreads);
 
+        // 현재 선택된 스레드가 삭제된 경우
+        if (threadId === threadIdToDelete) {
+          if (updatedThreads.length > 0) {
+            // 가장 최근 스레드로 이동
+            const mostRecentThread = updatedThreads[0];
+            setThreadId(mostRecentThread.id);
+            await loadThreadMessages(mostRecentThread.id);
+          } else {
+            // 스레드가 모두 삭제된 경우
+            setThreadId(null);
+            setMessages([]);
+          }
+        }
+        return;
+      }
+
+      // 스레드가 존재하면 삭제 시도
+      await openai.beta.threads.delete(threadIdToDelete);
+      console.log("스레드 삭제 성공:", threadIdToDelete);
+
+      const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
       setThreads(updatedThreads);
       await saveThreads(updatedThreads);
 
@@ -909,9 +1023,35 @@ const ChatScreen = () => {
           setMessages([]);
         }
       }
-      // '새로운 대화'를 삭제해도 자동 생성하지 않음!
-    } catch (error) {
+    } catch (error: any) {
       console.error("스레드 삭제 중 오류:", error);
+
+      // 404 오류인 경우 로컬에서만 제거
+      if (error?.status === 404 || error?.error?.code === "not_found") {
+        console.log("스레드가 이미 삭제됨, 로컬에서만 제거");
+        const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
+        setThreads(updatedThreads);
+        await saveThreads(updatedThreads);
+
+        // 현재 선택된 스레드가 삭제된 경우
+        if (threadId === threadIdToDelete) {
+          if (updatedThreads.length > 0) {
+            const mostRecentThread = updatedThreads[0];
+            setThreadId(mostRecentThread.id);
+            await loadThreadMessages(mostRecentThread.id);
+          } else {
+            setThreadId(null);
+            setMessages([]);
+          }
+        }
+      } else {
+        // 다른 오류인 경우 사용자에게 알림
+        Alert.alert(
+          "삭제 실패",
+          "스레드를 삭제하는 중 오류가 발생했습니다. 다시 시도해주세요.",
+          [{ text: "확인" }]
+        );
+      }
     }
   };
 
@@ -928,6 +1068,50 @@ const ChatScreen = () => {
     });
     setThreads(updatedThreads);
     await saveThreads(updatedThreads);
+  };
+
+  const startEditingTitle = (thread: Thread) => {
+    setEditingThreadId(thread.id);
+    setEditingTitle(thread.title);
+    // 다음 프레임에서 포커스
+    setTimeout(() => {
+      titleInputRef.current?.focus();
+    }, 100);
+  };
+
+  const saveThreadTitle = async (threadId: string, newTitle: string) => {
+    if (!newTitle.trim()) {
+      // 제목이 비어있으면 원래대로 되돌림
+      setEditingThreadId(null);
+      setEditingTitle("");
+      return;
+    }
+
+    try {
+      const updatedThreads = threads.map((thread) => {
+        if (thread.id === threadId) {
+          return {
+            ...thread,
+            title: newTitle.trim(),
+          };
+        }
+        return thread;
+      });
+
+      setThreads(updatedThreads);
+      await saveThreads(updatedThreads);
+      console.log("스레드 제목 업데이트 완료:", newTitle);
+    } catch (error) {
+      console.error("스레드 제목 업데이트 중 오류:", error);
+    } finally {
+      setEditingThreadId(null);
+      setEditingTitle("");
+    }
+  };
+
+  const cancelEditingTitle = () => {
+    setEditingThreadId(null);
+    setEditingTitle("");
   };
 
   const createNewThread = async () => {
@@ -950,41 +1134,43 @@ const ChatScreen = () => {
       );
 
       if (emptyNewThread) {
-        // 빈 "새로운 대화" 스레드가 있으면 그걸로 이동
-        setThreadId(emptyNewThread.id);
+        // 빈 "새로운 대화" 스레드가 있으면 실제로 존재하는지 확인
+        try {
+          await openai.beta.threads.retrieve(emptyNewThread.id);
+          setThreadId(emptyNewThread.id);
+          setMessages([]);
+        } catch (error: any) {
+          console.log("빈 스레드가 존재하지 않음, 새로 생성:", error);
+          // 스레드가 존재하지 않으면 새로 생성
+          const thread = await openai.beta.threads.create();
+          const newThreadObj: Thread = {
+            id: thread.id,
+            title: "새로운 대화",
+            created_at: new Date(),
+          };
+          const updatedThreads = [
+            newThreadObj,
+            ...threadsFromStorage.filter((t) => t.id !== emptyNewThread.id),
+          ];
+          setThreads(updatedThreads);
+          setThreadId(thread.id);
+          setMessages([]);
+          await saveThreads(updatedThreads);
+        }
+      } else {
+        // 빈 "새로운 대화" 스레드가 없으면 새로 생성
+        const thread = await openai.beta.threads.create();
+        const newThreadObj: Thread = {
+          id: thread.id,
+          title: "새로운 대화",
+          created_at: new Date(),
+        };
+        const updatedThreads = [newThreadObj, ...threadsFromStorage];
+        setThreads(updatedThreads);
+        setThreadId(thread.id);
         setMessages([]);
-        // 사이드바 닫기
-        const overlayToValue = 0;
-        Animated.parallel([
-          Animated.spring(sidebarAnimation, {
-            toValue: -SIDEBAR_WIDTH,
-            useNativeDriver: true,
-            tension: 65,
-            friction: 11,
-          }),
-          Animated.timing(overlayAnimation, {
-            toValue: overlayToValue,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          setIsSidebarOpen(false);
-        });
-        return;
+        await saveThreads(updatedThreads);
       }
-
-      // 빈 "새로운 대화" 스레드가 없으면 새로 생성
-      const thread = await openai.beta.threads.create();
-      const newThreadObj: Thread = {
-        id: thread.id,
-        title: "새로운 대화",
-        created_at: new Date(),
-      };
-      const updatedThreads = [newThreadObj, ...threadsFromStorage];
-      setThreads(updatedThreads);
-      setThreadId(thread.id);
-      setMessages([]);
-      await saveThreads(updatedThreads);
 
       // 사이드바 닫기
       const overlayToValue = 0;
@@ -1069,6 +1255,27 @@ const ChatScreen = () => {
       setIsLoading(true);
       console.log("이전 메시지 로딩 시작:", threadId);
 
+      // 스레드가 실제로 존재하는지 먼저 확인
+      try {
+        await openai.beta.threads.retrieve(threadId);
+      } catch (error: any) {
+        console.error("스레드가 존재하지 않음:", threadId, error);
+        // 스레드가 존재하지 않는 경우 로컬에서 제거
+        const updatedThreads = threads.filter((t) => t.id !== threadId);
+        setThreads(updatedThreads);
+        await saveThreads(updatedThreads);
+
+        setMessages([
+          {
+            text: "이 스레드는 더 이상 존재하지 않습니다. 새로운 대화를 시작해주세요.",
+            isUser: false,
+            id: Date.now().toString(),
+            createdAt: new Date(),
+          },
+        ]);
+        return;
+      }
+
       const messagesList = await openai.beta.threads.messages.list(threadId);
       console.log("메시지 목록 받음:", messagesList.data.length + "개");
 
@@ -1107,21 +1314,37 @@ const ChatScreen = () => {
       }, 100);
     } catch (error: any) {
       console.error("이전 메시지 로딩 중 오류:", error);
+
       if (error?.error?.code === "rate_limit_exceeded") {
         // rate limit 처리
         const shouldRetry = await handleRateLimit();
         if (shouldRetry) {
           return await loadThreadMessages(threadId);
         }
+      } else if (error?.status === 404 || error?.error?.code === "not_found") {
+        // 스레드가 존재하지 않는 경우
+        const updatedThreads = threads.filter((t) => t.id !== threadId);
+        setThreads(updatedThreads);
+        await saveThreads(updatedThreads);
+
+        setMessages([
+          {
+            text: "이 스레드는 더 이상 존재하지 않습니다. 새로운 대화를 시작해주세요.",
+            isUser: false,
+            id: Date.now().toString(),
+            createdAt: new Date(),
+          },
+        ]);
+      } else {
+        setMessages([
+          {
+            text: "이전 메시지를 불러오는 중 오류가 발생했습니다.",
+            isUser: false,
+            id: Date.now().toString(),
+            createdAt: new Date(),
+          },
+        ]);
       }
-      setMessages([
-        {
-          text: "이전 메시지를 불러오는 중 오류가 발생했습니다.",
-          isUser: false,
-          id: Date.now().toString(),
-          createdAt: new Date(),
-        },
-      ]);
     } finally {
       setIsLoading(false);
     }
@@ -1570,19 +1793,50 @@ const ChatScreen = () => {
                       />
                     </View>
                     <View style={styles.threadTextContainer}>
-                      <Text
-                        style={[
-                          styles.threadTitle,
-                          {
-                            color: colors.textPrimary,
-                            opacity: thread.id === threadId ? 1 : 0.9,
-                          },
-                        ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {thread.title || "새로운 대화"}
-                      </Text>
+                      {editingThreadId === thread.id ? (
+                        <TextInput
+                          ref={titleInputRef}
+                          style={[
+                            styles.threadTitleInput,
+                            {
+                              color: colors.textPrimary,
+                              borderColor: colors.accent,
+                            },
+                          ]}
+                          value={editingTitle}
+                          onChangeText={setEditingTitle}
+                          onBlur={() =>
+                            saveThreadTitle(thread.id, editingTitle)
+                          }
+                          onSubmitEditing={() =>
+                            saveThreadTitle(thread.id, editingTitle)
+                          }
+                          onKeyPress={({ nativeEvent }) => {
+                            if (nativeEvent.key === "Escape") {
+                              cancelEditingTitle();
+                            }
+                          }}
+                          autoFocus
+                          selectTextOnFocus
+                          maxLength={30}
+                          placeholder="제목을 입력하세요"
+                          placeholderTextColor={colors.textSecondary}
+                        />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.threadTitle,
+                            {
+                              color: colors.textPrimary,
+                              opacity: thread.id === threadId ? 1 : 0.9,
+                            },
+                          ]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {thread.title || "새로운 대화"}
+                        </Text>
+                      )}
                       {thread.last_message && (
                         <Text
                           style={[
@@ -1600,18 +1854,34 @@ const ChatScreen = () => {
                       )}
                     </View>
                   </View>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteThread(thread.id)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={15}
-                      color={colors.textSecondary}
-                      style={{ opacity: 0.4 }}
-                    />
-                  </TouchableOpacity>
+                  <View style={styles.threadActions}>
+                    {editingThreadId !== thread.id && (
+                      <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={() => startEditingTitle(thread)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <Ionicons
+                          name="create-outline"
+                          size={16}
+                          color={colors.accent}
+                          style={{ opacity: 0.7 }}
+                        />
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDeleteThread(thread.id)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={15}
+                        color={colors.textSecondary}
+                        style={{ opacity: 0.4 }}
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -1922,6 +2192,22 @@ const styles = StyleSheet.create({
   thinkingDotsContainer: {
     marginTop: 8,
     opacity: 0.7,
+  },
+  threadTitleInput: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    padding: 8,
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  threadActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  editButton: {
+    padding: 8,
+    opacity: 0.8,
   },
 });
 
