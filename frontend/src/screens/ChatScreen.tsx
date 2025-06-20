@@ -198,7 +198,6 @@ const ChatScreen = () => {
   const openai = useRef(
     new OpenAI({
       apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
-      dangerouslyAllowBrowser: true,
     })
   ).current;
 
@@ -210,138 +209,58 @@ const ChatScreen = () => {
 
   const initializeThread = async () => {
     try {
-      // 항상 최신 스레드 목록을 AsyncStorage에서 직접 읽음
-      const storedThreads = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
-      let threadsFromStorage: Thread[] = [];
-      if (storedThreads) {
-        threadsFromStorage = JSON.parse(storedThreads).map(
-          (thread: Thread) => ({
-            ...thread,
-            created_at: new Date(thread.created_at),
-          })
-        );
-      }
-      setThreads(threadsFromStorage);
+      const existingThreads = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
+      if (existingThreads) {
+        const parsedThreads: Thread[] = JSON.parse(existingThreads);
+        setThreads(parsedThreads);
 
-      // 스레드가 있는 경우 가장 최근 스레드를 찾음
-      if (threadsFromStorage.length > 0) {
-        // 최신 순서로 정렬 (이미 정렬되어 있을 수도 있지만 확실히 하기 위해)
-        const sortedThreads = threadsFromStorage.sort(
-          (a: Thread, b: Thread) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
+        // 가장 최근 스레드 찾기
+        const mostRecentThread = parsedThreads
+          .filter((thread) => thread.last_message)
+          .sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+          )[0];
 
-        // 실제 대화가 있는 가장 최근 스레드를 찾음 (last_message가 있는 스레드 우선)
-        let mostRecentThread = sortedThreads[0];
-
-        // last_message가 있는 스레드가 있는지 확인
-        const threadWithMessages = sortedThreads.find(
-          (thread) => thread.last_message
-        );
-        if (threadWithMessages) {
-          mostRecentThread = threadWithMessages;
-        }
-
-        // 가장 최근 스레드가 실제로 존재하는지 확인
-        try {
-          await openai.beta.threads.retrieve(mostRecentThread.id);
-          console.log(
-            "가장 최근 스레드로 이동:",
-            mostRecentThread.title,
-            mostRecentThread.id
-          );
+        if (mostRecentThread) {
           setThreadId(mostRecentThread.id);
           await loadThreadMessages(mostRecentThread.id);
-        } catch (error: any) {
-          console.log("가장 최근 스레드가 존재하지 않음, 새로 생성:", error);
-          // 스레드가 존재하지 않으면 새로 생성
-          const thread = await openai.beta.threads.create();
-          const newThreadObj: Thread = {
-            id: thread.id,
-            title: "새로운 대화",
-            created_at: new Date(),
-          };
-          const updatedThreads = [
-            newThreadObj,
-            ...threadsFromStorage.filter((t) => t.id !== mostRecentThread.id),
-          ];
-          setThreads(updatedThreads);
-          setThreadId(thread.id);
-          setMessages([]);
-          await saveThreads(updatedThreads);
+        } else {
+          await createNewThread();
         }
       } else {
-        // 스레드가 없으면 새로 생성
-        console.log("새로운 대화 스레드 생성");
-        const thread = await openai.beta.threads.create();
-        const newThreadObj: Thread = {
-          id: thread.id,
-          title: "새로운 대화",
-          created_at: new Date(),
-        };
-        const updatedThreads = [newThreadObj];
-        setThreads(updatedThreads);
-        setThreadId(thread.id);
-        setMessages([]);
-        await saveThreads(updatedThreads);
+        await createNewThread();
       }
     } catch (error) {
-      console.error("스레드 초기화 중 오류:", error);
-      // 오류 발생 시 빈 상태로 시작
-      setThreadId(null);
-      setMessages([]);
+      // 스레드 초기화 중 오류 처리
     }
   };
 
   const saveThreads = async (updatedThreads: Thread[]) => {
     try {
-      // 최신 순서로 정렬하여 저장
-      const sortedThreads = updatedThreads.sort(
-        (a: Thread, b: Thread) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-
       await AsyncStorage.setItem(
         THREADS_STORAGE_KEY,
-        JSON.stringify(sortedThreads)
+        JSON.stringify(updatedThreads)
       );
+      setThreads(updatedThreads);
     } catch (error) {
-      console.error("스레드 저장 중 오류:", error);
+      // 스레드 저장 중 오류 처리
     }
   };
 
-  const generateThreadTitle = async (message: string) => {
-    try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content:
-              "주어진 메시지를 기반으로 15자 이내의 간단한 대화 제목을 생성해주세요. 제목은 한국어로 작성하고, 메시지의 핵심 주제나 질문을 잘 반영해야 합니다.",
-          },
-          {
-            role: "user",
-            content: message,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 50,
-      });
-
-      const title =
-        completion.choices[0]?.message?.content?.trim() || "새로운 대화";
-      return title;
-    } catch (error) {
-      console.error("제목 생성 중 오류:", error);
-      return "새로운 대화";
-    }
+  // 티커 추출 함수
+  const extractTicker = (message: string): string | null => {
+    const tickerPattern = /\b[A-Z]{1,5}\b/g;
+    const matches = message.match(tickerPattern);
+    return matches ? matches[0] : null;
   };
 
-  const BACKEND_URL = "http://localhost:8000"; // 백엔드 서버 URL
+  // 주식 티커 패턴
+  const STOCK_TICKER_PATTERN = /\b[A-Z]{1,5}\b/g;
 
-  // 주식 티커 심볼 패턴 (예: AAPL, MSFT, 005930.KS)
-  const STOCK_TICKER_PATTERN = /\b[A-Z]{1,5}(\.[A-Z]{2})?\b/;
+  // 백엔드 URL
+  const BACKEND_URL = "http://localhost:8000";
 
   // 시장 분석 관련 키워드
   const MARKET_KEYWORDS = [
@@ -388,157 +307,100 @@ const ChatScreen = () => {
   };
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
 
     const userMessage = input.trim();
     setInput("");
+    Keyboard.dismiss();
+
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      text: userMessage,
+      isUser: true,
+      createdAt: new Date(),
+    };
+
+    setMessages((prev) => [...prev, newMessage]);
+
+    if (!threadId) {
+      await createNewThread();
+    }
+
+    setIsLoading(true);
+    setIsTyping(true);
 
     try {
-      if (!threadId) {
-        // 새로운 대화 스레드가 있는지 확인
-        const newThread = threads.find(
-          (thread) => thread.title === "새로운 대화"
-        );
-
-        if (newThread) {
-          // 새로운 대화 스레드가 있으면 그 스레드 사용
-          console.log("기존 새로운 대화 스레드 사용:", newThread.id);
-          setThreadId(newThread.id);
-        } else {
-          // 새로운 대화 스레드가 없을 때만 새로 생성
-          const thread = await openai.beta.threads.create();
-          const newThreadObj: Thread = {
-            id: thread.id,
-            title: "새로운 대화",
-            created_at: new Date(),
-          };
-          setThreadId(thread.id);
-          setThreads((prevThreads) => {
-            const updatedThreads = [newThreadObj, ...prevThreads];
-            saveThreads(updatedThreads); // 비동기로 저장
-            return updatedThreads;
-          });
-        }
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: userMessage,
-          isUser: true,
-          id: Date.now().toString(),
-          createdAt: new Date(),
-        },
-      ]);
-
-      // 첫 메시지 전송 시 '새로운 대화' 스레드의 제목을 변경
-      if (threadId) {
-        const currentThread = threads.find((t) => t.id === threadId);
-        if (currentThread && currentThread.title === "새로운 대화") {
-          const generatedTitle = await generateThreadTitle(userMessage);
-          const updatedThreads = threads.map((t) =>
-            t.id === threadId
-              ? { ...t, title: generatedTitle, last_message: userMessage }
-              : t
-          );
-          setThreads(updatedThreads);
-          await saveThreads(updatedThreads);
-        }
-      }
-
-      setIsTyping(true);
-
       const messageType = analyzeUserInput(userMessage);
-      console.log(`메시지 분석 결과: ${messageType}`);
-
-      let analysisResult: StockAnalysisResponse | MarketAnalysisResponse;
 
       if (messageType === "stock") {
-        const ticker = userMessage.match(STOCK_TICKER_PATTERN)?.[0] || "";
-        console.log(`주식 분석 요청 - 티커: ${ticker}`);
+        const ticker = extractTicker(userMessage);
+        if (ticker) {
+          const stockRequest: StockAnalysisRequest = { ticker };
 
-        try {
-          console.log(`${BACKEND_URL}/analyze 요청 시작`);
           const response = await fetch(`${BACKEND_URL}/analyze`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ ticker } as StockAnalysisRequest),
+            body: JSON.stringify(stockRequest),
           });
 
-          if (!response.ok) {
+          if (response.ok) {
+            const data: StockAnalysisResponse = await response.json();
+            const analysisMessage: Message = {
+              id: (Date.now() + 1).toString(),
+              text: data.analysis,
+              isUser: false,
+              createdAt: new Date(),
+            };
+            setMessages((prev) => [...prev, analysisMessage]);
+          } else {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-
-          analysisResult = (await response.json()) as StockAnalysisResponse;
-          console.log(`주식 분석 완료 - ${ticker}:`, {
-            hasStockInfo: !!analysisResult.stock_info,
-            analysisLength: analysisResult.analysis.length,
-          });
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              text: analysisResult.analysis,
-              isUser: false,
-              id: Date.now().toString(),
-              createdAt: new Date(),
-            },
-          ]);
-        } catch (error) {
-          console.error("주식 분석 요청 실패:", error);
+        } else {
           await sendMessageToAssistant(userMessage);
         }
       } else if (messageType === "market") {
         const marketRequest: MarketAnalysisRequest = {
-          indices: ["^GSPC", "^IXIC", "^KS11"],
+          indices: ["^GSPC", "^IXIC", "^DJI", "^KS11", "^KQ11"],
           lookback_days: 30,
+          include_news: true,
         };
 
-        console.log("시장 분석 요청:", marketRequest);
+        const response = await fetch(`${BACKEND_URL}/market-analyze`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(marketRequest),
+        });
 
-        try {
-          console.log(`${BACKEND_URL}/market-analyze 요청 시작`);
-          const response = await fetch(`${BACKEND_URL}/market-analyze`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(marketRequest),
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          analysisResult = (await response.json()) as MarketAnalysisResponse;
-          console.log("시장 분석 완료:", {
-            indices: Object.keys(analysisResult.market_data),
-            analysisLength: analysisResult.analysis.length,
-          });
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              text: analysisResult.analysis,
-              isUser: false,
-              id: Date.now().toString(),
-              createdAt: new Date(),
-            },
-          ]);
-        } catch (error) {
-          console.error("시장 분석 요청 실패:", error);
-          await sendMessageToAssistant(userMessage);
+        if (response.ok) {
+          const data: MarketAnalysisResponse = await response.json();
+          const analysisMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            text: data.analysis,
+            isUser: false,
+            createdAt: new Date(),
+          };
+          setMessages((prev) => [...prev, analysisMessage]);
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
       } else {
-        console.log("일반 대화 처리 - OpenAI Assistant 사용");
         await sendMessageToAssistant(userMessage);
       }
-
-      setIsTyping(false);
     } catch (error) {
-      console.error("메시지 전송 중 오류:", error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "죄송합니다. 요청을 처리하는 중 오류가 발생했습니다. 다시 시도해주세요.",
+        isUser: false,
+        createdAt: new Date(),
+        error: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
       setIsTyping(false);
     }
   };
@@ -696,378 +558,126 @@ const ChatScreen = () => {
   };
 
   const sendMessageToAssistant = async (userMessage: string) => {
-    if (!threadId || !ASSISTANT_ID) {
-      console.error("스레드 ID 또는 어시스턴트 ID가 없음:", {
-        threadId,
-        ASSISTANT_ID,
-      });
+    if (!threadId) {
       return;
     }
 
     try {
-      setIsLoading(true);
-      console.log("사용자 메시지 생성 시작");
-
-      // 스레드가 실제로 존재하는지 먼저 확인
-      try {
-        await openai.beta.threads.retrieve(threadId);
-      } catch (error: any) {
-        console.error("스레드가 존재하지 않음:", threadId, error);
-        // 스레드가 존재하지 않는 경우 새로운 스레드 생성
-        const newThread = await openai.beta.threads.create();
-        const newThreadObj: Thread = {
-          id: newThread.id,
-          title: "새로운 대화",
-          created_at: new Date(),
-        };
-
-        const updatedThreads = [newThreadObj, ...threads];
-        setThreads(updatedThreads);
-        setThreadId(newThread.id);
-        await saveThreads(updatedThreads);
-
-        // 새로운 스레드로 메시지 전송
-        return await sendMessageToAssistant(userMessage);
-      }
-
-      let streamingMessageId = Date.now().toString();
-
-      // 로딩 메시지 초기화 (첫 번째 생각 메시지로 시작)
-      setMessages((prev) => [
-        ...prev,
+      const createdMessage = await openai.beta.threads.messages.create(
+        threadId,
         {
-          text: thinkingMessages[0],
-          isUser: false,
-          id: streamingMessageId,
-          createdAt: new Date(),
-        },
-      ]);
-
-      // 생각하는 애니메이션 시작
-      startThinkingAnimation(streamingMessageId);
-
-      // Assistant ID 유효성 검사
-      try {
-        const assistant = await openai.beta.assistants.retrieve(ASSISTANT_ID);
-      } catch (error: any) {
-        if (error?.error?.code === "rate_limit_exceeded") {
-          const shouldRetry = await handleRateLimit();
-          if (shouldRetry) {
-            return await sendMessageToAssistant(userMessage);
-          }
-        }
-        console.error("Assistant ID가 유효하지 않음:", error);
-        throw new Error("Assistant ID가 유효하지 않습니다.");
-      }
-
-      // 사용자 메시지 생성
-      let createdMessage;
-      try {
-        createdMessage = await openai.beta.threads.messages.create(threadId, {
           role: "user",
           content: userMessage,
-        });
-        console.log("사용자 메시지 생성 완료:", createdMessage.id);
-      } catch (error: any) {
-        if (error?.error?.code === "rate_limit_exceeded") {
-          const shouldRetry = await handleRateLimit();
-          if (shouldRetry) {
-            return await sendMessageToAssistant(userMessage);
-          }
         }
-        throw error;
-      }
+      );
 
-      // Assistant 실행
-      let run;
-      try {
-        run = await openai.beta.threads.runs.create(threadId, {
-          assistant_id: ASSISTANT_ID,
-          instructions:
-            "너는 소비자독점 기업을 중심으로 미국과 한국 주식을 분석하는 고급 투자 어시스턴트야.",
-        });
-        console.log("Assistant 실행 요청 완료:", run.id);
-      } catch (error: any) {
-        if (error?.error?.code === "rate_limit_exceeded") {
-          const shouldRetry = await handleRateLimit();
-          if (shouldRetry) {
-            return await sendMessageToAssistant(userMessage);
-          }
-        }
-        throw error;
-      }
-
-      // 실행 상태 확인 및 응답 처리
-      let runStatus = await openai.beta.threads.runs.retrieve(run.id, {
-        thread_id: threadId,
+      const run = await openai.beta.threads.runs.create(threadId, {
+        assistant_id: process.env.EXPO_PUBLIC_ASSISTANT_ID!,
       });
-      console.log("초기 실행 상태:", runStatus.status);
 
-      let retryCount = 0;
-      const maxStatusRetries = 30; // 30초 타임아웃
+      let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
 
       while (
-        runStatus.status !== "completed" &&
-        runStatus.status !== "failed" &&
-        runStatus.status !== "expired" &&
-        retryCount < maxStatusRetries
+        runStatus.status === "in_progress" ||
+        runStatus.status === "queued"
       ) {
         await delay(1000);
-        try {
-          runStatus = await openai.beta.threads.runs.retrieve(run.id, {
-            thread_id: threadId,
-          });
-          console.log("실행 상태 업데이트:", runStatus.status);
-        } catch (error: any) {
-          if (error?.error?.code === "rate_limit_exceeded") {
-            const shouldRetry = await handleRateLimit();
-            if (shouldRetry) {
-              continue;
-            }
-          }
-          throw error;
-        }
-        retryCount++;
+        runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
       }
 
-      if (runStatus.status === "completed") {
-        // 생각하는 애니메이션 정지
-        stopThinkingAnimation();
-
-        const messages = await openai.beta.threads.messages.list(threadId);
-        const lastMessage = messages.data[0];
-
-        if (
-          lastMessage.role === "assistant" &&
-          lastMessage.content[0].type === "text"
-        ) {
-          const messageContent = lastMessage.content[0].text.value;
-          const titleMatch = messageContent.match(/#제목:\s*([^\n]+)/);
-          let title = "새로운 대화";
-          let content = messageContent;
-
-          if (titleMatch) {
-            title = titleMatch[1].trim();
-            content = messageContent.replace(/#제목:.*\n*/, "").trim();
-          }
-
-          // 기존 로딩 메시지를 새로운 응답으로 교체
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === streamingMessageId
-                ? { ...msg, text: content.trim() }
-                : msg
-            )
-          );
-
-          // 첫 메시지인 경우에만 제목 업데이트
-          if (messages.data.length <= 2) {
-            const updatedThreads = threads.map((thread) =>
-              thread.id === threadId
-                ? { ...thread, title, last_message: userMessage }
-                : thread
-            );
-            setThreads(updatedThreads);
-            await saveThreads(updatedThreads);
-          } else {
-            await updateThreadTitle(threadId, userMessage);
-          }
-        }
-      } else if (runStatus.status === "failed") {
-        const runDetails = await openai.beta.threads.runs.retrieve(run.id, {
-          thread_id: threadId,
-        });
-        console.error("실행 실패 상세:", runDetails);
-
-        if (runDetails.last_error?.code === "rate_limit_exceeded") {
-          const shouldRetry = await handleRateLimit();
-          if (shouldRetry) {
-            return await sendMessageToAssistant(userMessage);
-          }
-        }
-
-        throw new Error(
-          `Assistant 실행 실패: ${
-            runDetails.last_error?.message || "알 수 없는 오류"
-          }`
+      if (runStatus.status === "failed") {
+        const runDetails = await openai.beta.threads.runs.retrieve(
+          threadId,
+          run.id
         );
-      } else if (runStatus.status === "expired") {
-        throw new Error("Assistant 실행 시간 초과");
-      } else if (retryCount >= maxStatusRetries) {
-        throw new Error("Assistant 응답 시간 초과");
+        throw new Error(`Run failed: ${runDetails.last_error?.message}`);
       }
-    } catch (error: any) {
-      stopColorAnimation();
-      // 에러 발생 시 애니메이션 정지
-      stopThinkingAnimation();
-      console.error("메시지 전송 중 상세 오류:", error);
 
-      const errorMessage =
-        error?.error?.code === "rate_limit_exceeded"
-          ? "API 사용량 제한에 도달했습니다. 잠시 후 다시 시도해주세요."
-          : error?.status === 404 || error?.error?.code === "not_found"
-          ? "스레드가 존재하지 않습니다. 새로운 대화를 시작해주세요."
-          : `오류가 발생했습니다: ${
-              error.message || "알 수 없는 오류가 발생했습니다"
-            }`;
+      const messagesList = await openai.beta.threads.messages.list(threadId);
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: errorMessage,
+      const assistantMessage = messagesList.data.find(
+        (msg: any) =>
+          msg.role === "assistant" && msg.created_at > createdMessage.created_at
+      );
+
+      if (assistantMessage && assistantMessage.content[0].type === "text") {
+        const assistantText = assistantMessage.content[0].text.value;
+        const analysisMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: assistantText,
           isUser: false,
-          id: Date.now().toString(),
           createdAt: new Date(),
-          error: true,
-          lastUserMessage: userMessage,
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-      stopThinkingAnimation();
-      stopColorAnimation();
+        };
+        setMessages((prev) => [...prev, analysisMessage]);
+      }
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "죄송합니다. 메시지 전송 중 오류가 발생했습니다. 다시 시도해주세요.",
+        isUser: false,
+        createdAt: new Date(),
+        error: true,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     }
   };
 
   const handleThreadSelect = async (thread: Thread) => {
     try {
-      // 스레드가 실제로 존재하는지 먼저 확인
-      try {
-        await openai.beta.threads.retrieve(thread.id);
-        setThreadId(thread.id);
-        await loadThreadMessages(thread.id);
-      } catch (error: any) {
-        console.error("선택한 스레드가 존재하지 않음:", thread.id, error);
-        // 스레드가 존재하지 않는 경우 로컬에서 제거
-        const updatedThreads = threads.filter((t) => t.id !== thread.id);
-        setThreads(updatedThreads);
-        await saveThreads(updatedThreads);
-
-        // 사용자에게 알림
-        Alert.alert(
-          "스레드 오류",
-          "이 스레드는 더 이상 존재하지 않습니다. 다른 대화를 선택해주세요.",
-          [{ text: "확인" }]
-        );
-        return;
-      }
-
-      // 사이드바 닫기 애니메이션 실행
-      const overlayToValue = 0;
-      Animated.parallel([
-        Animated.spring(sidebarAnimation, {
-          toValue: -SIDEBAR_WIDTH,
-          useNativeDriver: true,
-          tension: 65,
-          friction: 11,
-        }),
-        Animated.timing(overlayAnimation, {
-          toValue: overlayToValue,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setIsSidebarOpen(false);
-      });
+      setThreadId(thread.id);
+      setIsSidebarOpen(false);
+      await loadThreadMessages(thread.id);
     } catch (error) {
-      console.error("스레드 선택 중 오류:", error);
+      // 스레드 선택 중 오류 처리
     }
   };
 
   const handleDeleteThread = async (threadIdToDelete: string) => {
     try {
-      // 스레드가 실제로 존재하는지 먼저 확인
-      try {
-        await openai.beta.threads.retrieve(threadIdToDelete);
-      } catch (error: any) {
-        console.log("스레드가 이미 존재하지 않음:", threadIdToDelete);
-        // 스레드가 이미 삭제되었거나 존재하지 않는 경우 로컬에서만 제거
-        const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
-        setThreads(updatedThreads);
-        await saveThreads(updatedThreads);
-
-        // 현재 선택된 스레드가 삭제된 경우
-        if (threadId === threadIdToDelete) {
-          if (updatedThreads.length > 0) {
-            // 가장 최근 스레드로 이동
-            const mostRecentThread = updatedThreads[0];
-            setThreadId(mostRecentThread.id);
-            await loadThreadMessages(mostRecentThread.id);
-          } else {
-            // 스레드가 모두 삭제된 경우
-            setThreadId(null);
-            setMessages([]);
-          }
-        }
-        return;
-      }
-
-      // 스레드가 존재하면 삭제 시도
       await openai.beta.threads.delete(threadIdToDelete);
-      console.log("스레드 삭제 성공:", threadIdToDelete);
 
       const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
-      setThreads(updatedThreads);
       await saveThreads(updatedThreads);
 
-      // 현재 선택된 스레드가 삭제된 경우
       if (threadId === threadIdToDelete) {
+        setThreadId(null);
+        setMessages([]);
         if (updatedThreads.length > 0) {
-          // 가장 최근 스레드로 이동
-          const mostRecentThread = updatedThreads[0];
-          setThreadId(mostRecentThread.id);
-          await loadThreadMessages(mostRecentThread.id);
-        } else {
-          // 스레드가 모두 삭제된 경우
-          setThreadId(null);
-          setMessages([]);
-        }
-      }
-    } catch (error: any) {
-      console.error("스레드 삭제 중 오류:", error);
+          const mostRecentThread = updatedThreads
+            .filter((thread) => thread.last_message)
+            .sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime()
+            )[0];
 
-      // 404 오류인 경우 로컬에서만 제거
-      if (error?.status === 404 || error?.error?.code === "not_found") {
-        console.log("스레드가 이미 삭제됨, 로컬에서만 제거");
-        const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
-        setThreads(updatedThreads);
-        await saveThreads(updatedThreads);
-
-        // 현재 선택된 스레드가 삭제된 경우
-        if (threadId === threadIdToDelete) {
-          if (updatedThreads.length > 0) {
-            const mostRecentThread = updatedThreads[0];
+          if (mostRecentThread) {
             setThreadId(mostRecentThread.id);
             await loadThreadMessages(mostRecentThread.id);
           } else {
-            setThreadId(null);
-            setMessages([]);
+            await createNewThread();
           }
+        } else {
+          await createNewThread();
         }
-      } else {
-        // 다른 오류인 경우 사용자에게 알림
-        Alert.alert(
-          "삭제 실패",
-          "스레드를 삭제하는 중 오류가 발생했습니다. 다시 시도해주세요.",
-          [{ text: "확인" }]
-        );
       }
+    } catch (error) {
+      // 스레드가 이미 삭제된 경우 로컬에서만 제거
+      const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
+      await saveThreads(updatedThreads);
     }
   };
 
   const updateThreadTitle = async (threadId: string, lastMessage: string) => {
-    // 이미 제목이 있는 경우 마지막 메시지만 업데이트
-    const updatedThreads = threads.map((thread) => {
-      if (thread.id === threadId) {
-        return {
-          ...thread,
-          last_message: lastMessage,
-        };
-      }
-      return thread;
-    });
-    setThreads(updatedThreads);
-    await saveThreads(updatedThreads);
+    try {
+      const newTitle = await generateThreadTitle(lastMessage);
+      const updatedThreads = threads.map((thread) =>
+        thread.id === threadId ? { ...thread, title: newTitle } : thread
+      );
+      await saveThreads(updatedThreads);
+    } catch (error) {
+      // 스레드 제목 업데이트 중 오류 처리
+    }
   };
 
   const startEditingTitle = (thread: Thread) => {
@@ -1100,9 +710,8 @@ const ChatScreen = () => {
 
       setThreads(updatedThreads);
       await saveThreads(updatedThreads);
-      console.log("스레드 제목 업데이트 완료:", newTitle);
     } catch (error) {
-      console.error("스레드 제목 업데이트 중 오류:", error);
+      // 스레드 제목 업데이트 중 오류 처리
     } finally {
       setEditingThreadId(null);
       setEditingTitle("");
@@ -1116,98 +725,21 @@ const ChatScreen = () => {
 
   const createNewThread = async () => {
     try {
-      // 항상 최신 스레드 목록을 AsyncStorage에서 직접 읽음
-      const storedThreads = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
-      let threadsFromStorage: Thread[] = [];
-      if (storedThreads) {
-        threadsFromStorage = JSON.parse(storedThreads).map(
-          (thread: Thread) => ({
-            ...thread,
-            created_at: new Date(thread.created_at),
-          })
-        );
-      }
+      const newThread = await openai.beta.threads.create();
+      const threadTitle = "새로운 대화";
 
-      // 대화 내용이 없는 "새로운 대화" 스레드가 있는지 확인
-      const emptyNewThread = threadsFromStorage.find(
-        (thread) => thread.title === "새로운 대화" && !thread.last_message
-      );
+      const newThreadData: Thread = {
+        id: newThread.id,
+        title: threadTitle,
+        created_at: new Date(),
+      };
 
-      if (emptyNewThread) {
-        // 빈 "새로운 대화" 스레드가 있으면 실제로 존재하는지 확인
-        try {
-          await openai.beta.threads.retrieve(emptyNewThread.id);
-          setThreadId(emptyNewThread.id);
-          setMessages([]);
-        } catch (error: any) {
-          console.log("빈 스레드가 존재하지 않음, 새로 생성:", error);
-          // 스레드가 존재하지 않으면 새로 생성
-          const thread = await openai.beta.threads.create();
-          const newThreadObj: Thread = {
-            id: thread.id,
-            title: "새로운 대화",
-            created_at: new Date(),
-          };
-          const updatedThreads = [
-            newThreadObj,
-            ...threadsFromStorage.filter((t) => t.id !== emptyNewThread.id),
-          ];
-          setThreads(updatedThreads);
-          setThreadId(thread.id);
-          setMessages([]);
-          await saveThreads(updatedThreads);
-        }
-      } else {
-        // 빈 "새로운 대화" 스레드가 없으면 새로 생성
-        const thread = await openai.beta.threads.create();
-        const newThreadObj: Thread = {
-          id: thread.id,
-          title: "새로운 대화",
-          created_at: new Date(),
-        };
-        const updatedThreads = [newThreadObj, ...threadsFromStorage];
-        setThreads(updatedThreads);
-        setThreadId(thread.id);
-        setMessages([]);
-        await saveThreads(updatedThreads);
-      }
-
-      // 사이드바 닫기
-      const overlayToValue = 0;
-      Animated.parallel([
-        Animated.spring(sidebarAnimation, {
-          toValue: -SIDEBAR_WIDTH,
-          useNativeDriver: true,
-          tension: 65,
-          friction: 11,
-        }),
-        Animated.timing(overlayAnimation, {
-          toValue: overlayToValue,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setIsSidebarOpen(false);
-      });
+      const updatedThreads = [newThreadData, ...threads];
+      await saveThreads(updatedThreads);
+      setThreadId(newThread.id);
+      setMessages([]);
     } catch (error) {
-      console.error("새 스레드 생성 중 오류:", error);
-      // 에러 발생 시에도 사이드바 닫기
-      const overlayToValue = 0;
-      Animated.parallel([
-        Animated.spring(sidebarAnimation, {
-          toValue: -SIDEBAR_WIDTH,
-          useNativeDriver: true,
-          tension: 65,
-          friction: 11,
-        }),
-        Animated.timing(overlayAnimation, {
-          toValue: overlayToValue,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setIsSidebarOpen(false);
-      });
+      // 새 스레드 생성 중 오류 처리
     }
   };
 
@@ -1223,11 +755,6 @@ const ChatScreen = () => {
       retryAttempt++;
       if (retryAttempt <= maxRetries) {
         const waitTime = baseDelay * Math.pow(2, retryAttempt - 1); // 지수 백오프
-        console.log(
-          `Rate limit 도달. ${
-            waitTime / 1000
-          }초 후 재시도 (${retryAttempt}/${maxRetries})...`
-        );
 
         setMessages((prev) => [
           ...prev,
@@ -1252,101 +779,45 @@ const ChatScreen = () => {
 
   const loadThreadMessages = async (threadId: string) => {
     try {
-      setIsLoading(true);
-      console.log("이전 메시지 로딩 시작:", threadId);
-
-      // 스레드가 실제로 존재하는지 먼저 확인
-      try {
-        await openai.beta.threads.retrieve(threadId);
-      } catch (error: any) {
-        console.error("스레드가 존재하지 않음:", threadId, error);
-        // 스레드가 존재하지 않는 경우 로컬에서 제거
-        const updatedThreads = threads.filter((t) => t.id !== threadId);
-        setThreads(updatedThreads);
-        await saveThreads(updatedThreads);
-
-        setMessages([
-          {
-            text: "이 스레드는 더 이상 존재하지 않습니다. 새로운 대화를 시작해주세요.",
-            isUser: false,
-            id: Date.now().toString(),
-            createdAt: new Date(),
-          },
-        ]);
-        return;
-      }
-
       const messagesList = await openai.beta.threads.messages.list(threadId);
-      console.log("메시지 목록 받음:", messagesList.data.length + "개");
 
-      // 메시지를 시간순으로 정렬 (오래된 메시지가 먼저 오도록)
-      const formattedMessages = messagesList.data
-        .filter((msg) => {
-          const content = msg.content[0];
-          return (
-            content &&
-            "type" in content &&
-            content.type === "text" &&
-            "text" in content &&
-            "value" in content.text
-          );
-        })
-        .map((msg) => {
-          const content = msg.content[0];
-          return {
-            text:
-              "text" in content && "value" in content.text
-                ? content.text.value
-                : "",
-            isUser: msg.role === "user",
-            id: msg.id,
-            createdAt: new Date(msg.created_at * 1000),
-          };
-        })
+      const convertedMessages: Message[] = messagesList.data
+        .map((msg: any) => ({
+          id: msg.id,
+          text: msg.content[0].type === "text" ? msg.content[0].text.value : "",
+          isUser: msg.role === "user",
+          createdAt: new Date(msg.created_at * 1000),
+        }))
         .reverse();
 
-      console.log("메시지 변환 완료");
-      setMessages(formattedMessages);
+      setMessages(convertedMessages);
+    } catch (error) {
+      // 이전 메시지 로딩 중 오류 처리
+    }
+  };
 
-      // 스크롤을 아래로 이동
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    } catch (error: any) {
-      console.error("이전 메시지 로딩 중 오류:", error);
-
-      if (error?.error?.code === "rate_limit_exceeded") {
-        // rate limit 처리
-        const shouldRetry = await handleRateLimit();
-        if (shouldRetry) {
-          return await loadThreadMessages(threadId);
-        }
-      } else if (error?.status === 404 || error?.error?.code === "not_found") {
-        // 스레드가 존재하지 않는 경우
-        const updatedThreads = threads.filter((t) => t.id !== threadId);
-        setThreads(updatedThreads);
-        await saveThreads(updatedThreads);
-
-        setMessages([
+  const generateThreadTitle = async (message: string) => {
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
           {
-            text: "이 스레드는 더 이상 존재하지 않습니다. 새로운 대화를 시작해주세요.",
-            isUser: false,
-            id: Date.now().toString(),
-            createdAt: new Date(),
+            role: "system",
+            content:
+              "주식 투자와 관련된 대화의 제목을 10자 이내로 간결하게 생성해주세요. 한국어로 작성해주세요.",
           },
-        ]);
-      } else {
-        setMessages([
           {
-            text: "이전 메시지를 불러오는 중 오류가 발생했습니다.",
-            isUser: false,
-            id: Date.now().toString(),
-            createdAt: new Date(),
+            role: "user",
+            content: message,
           },
-        ]);
-      }
-    } finally {
-      setIsLoading(false);
+        ],
+        max_tokens: 20,
+        temperature: 0.7,
+      });
+
+      return response.choices[0]?.message?.content?.trim() || "새로운 대화";
+    } catch (error) {
+      return "새로운 대화";
     }
   };
 

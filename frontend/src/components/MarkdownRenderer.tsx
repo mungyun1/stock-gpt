@@ -34,15 +34,17 @@ const MermaidRenderer: React.FC<{ chart: string }> = ({ chart }) => {
     </html>
   `;
 
+  const handleMermaidMessage = (event: any) => {
+    // Mermaid 렌더링 완료 처리
+  };
+
   return (
     <View style={styles.mermaidContainer}>
       <WebView
         source={{ html }}
         style={styles.webview}
         scrollEnabled={false}
-        onMessage={(event) => {
-          console.log("Mermaid rendered:", event.nativeEvent.data);
-        }}
+        onMessage={handleMermaidMessage}
       />
     </View>
   );

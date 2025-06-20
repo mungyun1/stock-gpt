@@ -24,7 +24,7 @@ const FeatureButtons: React.FC = () => {
           backgroundColor: colors.cardBackground,
           borderRadius: 20,
           marginHorizontal: 24,
-          padding: 24,
+          padding: 20,
         },
       ]}
     >
