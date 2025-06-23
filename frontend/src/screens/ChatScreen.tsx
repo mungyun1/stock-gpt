@@ -20,7 +20,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useThemeColors } from "../theme/colors";
-import OpenAI from "openai";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Markdown from "react-native-markdown-display";
 
@@ -194,12 +193,6 @@ const ChatScreen = () => {
       ))}
     </View>
   );
-
-  const openai = useRef(
-    new OpenAI({
-      apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
-    })
-  ).current;
 
   const ASSISTANT_ID = process.env.EXPO_PUBLIC_OPENAI_ASSISTANT_ID;
 
@@ -563,37 +556,80 @@ const ChatScreen = () => {
     }
 
     try {
-      const createdMessage = await openai.beta.threads.messages.create(
-        threadId,
+      // 메시지 생성
+      const createdMessageResponse = await fetch(
+        `${BACKEND_URL}/threads/${threadId}/messages`,
         {
-          role: "user",
-          content: userMessage,
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            thread_id: threadId,
+            content: userMessage,
+          }),
         }
       );
 
-      const run = await openai.beta.threads.runs.create(threadId, {
-        assistant_id: process.env.EXPO_PUBLIC_ASSISTANT_ID!,
-      });
+      if (!createdMessageResponse.ok) {
+        throw new Error(
+          `Failed to create message: ${createdMessageResponse.status}`
+        );
+      }
 
-      let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      const createdMessage = await createdMessageResponse.json();
+
+      // Run 생성
+      const runResponse = await fetch(
+        `${BACKEND_URL}/threads/${threadId}/runs`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            thread_id: threadId,
+            assistant_id: ASSISTANT_ID!,
+          }),
+        }
+      );
+
+      if (!runResponse.ok) {
+        throw new Error(`Failed to create run: ${runResponse.status}`);
+      }
+
+      const run = await runResponse.json();
+
+      // Run 상태 확인
+      let runStatus = await fetch(
+        `${BACKEND_URL}/threads/${threadId}/runs/${run.id}`
+      );
+      let runStatusData = await runStatus.json();
 
       while (
-        runStatus.status === "in_progress" ||
-        runStatus.status === "queued"
+        runStatusData.status === "in_progress" ||
+        runStatusData.status === "queued"
       ) {
         await delay(1000);
-        runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
-      }
-
-      if (runStatus.status === "failed") {
-        const runDetails = await openai.beta.threads.runs.retrieve(
-          threadId,
-          run.id
+        runStatus = await fetch(
+          `${BACKEND_URL}/threads/${threadId}/runs/${run.id}`
         );
-        throw new Error(`Run failed: ${runDetails.last_error?.message}`);
+        runStatusData = await runStatus.json();
       }
 
-      const messagesList = await openai.beta.threads.messages.list(threadId);
+      if (runStatusData.status === "failed") {
+        throw new Error(`Run failed: ${runStatusData.last_error?.message}`);
+      }
+
+      // 메시지 목록 가져오기
+      const messagesResponse = await fetch(
+        `${BACKEND_URL}/threads/${threadId}/messages`
+      );
+      if (!messagesResponse.ok) {
+        throw new Error(`Failed to fetch messages: ${messagesResponse.status}`);
+      }
+
+      const messagesList = await messagesResponse.json();
 
       const assistantMessage = messagesList.data.find(
         (msg: any) =>
@@ -634,7 +670,16 @@ const ChatScreen = () => {
 
   const handleDeleteThread = async (threadIdToDelete: string) => {
     try {
-      await openai.beta.threads.delete(threadIdToDelete);
+      const response = await fetch(
+        `${BACKEND_URL}/threads/${threadIdToDelete}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete thread: ${response.status}`);
+      }
 
       const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
       await saveThreads(updatedThreads);
@@ -725,7 +770,19 @@ const ChatScreen = () => {
 
   const createNewThread = async () => {
     try {
-      const newThread = await openai.beta.threads.create();
+      const response = await fetch(`${BACKEND_URL}/threads/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create thread: ${response.status}`);
+      }
+
+      const newThread = await response.json();
       const threadTitle = "새로운 대화";
 
       const newThreadData: Thread = {
@@ -779,7 +836,15 @@ const ChatScreen = () => {
 
   const loadThreadMessages = async (threadId: string) => {
     try {
-      const messagesList = await openai.beta.threads.messages.list(threadId);
+      const response = await fetch(
+        `${BACKEND_URL}/threads/${threadId}/messages`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to load messages: ${response.status}`);
+      }
+
+      const messagesList = await response.json();
 
       const convertedMessages: Message[] = messagesList.data
         .map((msg: any) => ({
@@ -798,24 +863,22 @@ const ChatScreen = () => {
 
   const generateThreadTitle = async (message: string) => {
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content:
-              "주식 투자와 관련된 대화의 제목을 10자 이내로 간결하게 생성해주세요. 한국어로 작성해주세요.",
-          },
-          {
-            role: "user",
-            content: message,
-          },
-        ],
-        max_tokens: 20,
-        temperature: 0.7,
+      const response = await fetch(`${BACKEND_URL}/generate-title`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: message,
+        }),
       });
 
-      return response.choices[0]?.message?.content?.trim() || "새로운 대화";
+      if (!response.ok) {
+        throw new Error(`Failed to generate title: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.title || "새로운 대화";
     } catch (error) {
       return "새로운 대화";
     }

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Dict, Any
 import yfinance as yf
 from openai import OpenAI
 import os
@@ -27,6 +27,31 @@ class MarketRequest(BaseModel):
     indices: list[str] = ["^GSPC", "^IXIC", "^KS11"]  # S&P500, NASDAQ, KOSPI
     lookback_days: Optional[int] = 30  # 분석할 기간(일)
     include_news: Optional[bool] = True  # 뉴스 데이터 포함 여부
+
+# OpenAI Assistant API 관련 모델들
+class ThreadCreateRequest(BaseModel):
+    pass
+
+class MessageCreateRequest(BaseModel):
+    thread_id: str
+    content: str
+
+class RunCreateRequest(BaseModel):
+    thread_id: str
+    assistant_id: str
+
+class RunRetrieveRequest(BaseModel):
+    thread_id: str
+    run_id: str
+
+class MessagesListRequest(BaseModel):
+    thread_id: str
+
+class ThreadDeleteRequest(BaseModel):
+    thread_id: str
+
+class ThreadTitleRequest(BaseModel):
+    message: str
 
 def build_prompt_from_data(data: dict, ticker: str) -> str:
     return f"""
@@ -201,6 +226,128 @@ async def analyze_market(request: MarketRequest):
             "analysis": analysis
         }
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# OpenAI Assistant API 엔드포인트들
+@app.post("/threads/create")
+async def create_thread(request: ThreadCreateRequest):
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        thread = client.beta.threads.create()
+        return {
+            "id": thread.id,
+            "created_at": thread.created_at
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/threads/{thread_id}/messages")
+async def create_message(thread_id: str, request: MessageCreateRequest):
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        message = client.beta.threads.messages.create(
+            thread_id=thread_id,
+            role="user",
+            content=request.content
+        )
+        return {
+            "id": message.id,
+            "created_at": message.created_at,
+            "role": message.role,
+            "content": message.content
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/threads/{thread_id}/runs")
+async def create_run(thread_id: str, request: RunCreateRequest):
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        run = client.beta.threads.runs.create(
+            thread_id=thread_id,
+            assistant_id=request.assistant_id
+        )
+        return {
+            "id": run.id,
+            "status": run.status,
+            "created_at": run.created_at
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/threads/{thread_id}/runs/{run_id}")
+async def retrieve_run(thread_id: str, run_id: str):
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        run = client.beta.threads.runs.retrieve(
+            thread_id=thread_id,
+            run_id=run_id
+        )
+        return {
+            "id": run.id,
+            "status": run.status,
+            "last_error": run.last_error
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/threads/{thread_id}/messages")
+async def list_messages(thread_id: str):
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        messages = client.beta.threads.messages.list(thread_id=thread_id)
+        
+        # 메시지 데이터를 직렬화 가능한 형태로 변환
+        serialized_messages = []
+        for msg in messages.data:
+            serialized_messages.append({
+                "id": msg.id,
+                "role": msg.role,
+                "content": [
+                    {
+                        "type": content.type,
+                        "text": {"value": content.text.value} if hasattr(content, 'text') else None
+                    } for content in msg.content
+                ],
+                "created_at": msg.created_at
+            })
+        
+        return {"data": serialized_messages}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/threads/{thread_id}")
+async def delete_thread(thread_id: str):
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        result = client.beta.threads.delete(thread_id=thread_id)
+        return {"deleted": result.deleted}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate-title")
+async def generate_title(request: ThreadTitleRequest):
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "주식 투자와 관련된 대화의 제목을 10자 이내로 간결하게 생성해주세요. 한국어로 작성해주세요."
+                },
+                {
+                    "role": "user",
+                    "content": request.message
+                }
+            ],
+            max_tokens=20,
+            temperature=0.7
+        )
+        
+        title = response.choices[0].message.content.strip() if response.choices[0].message.content else "새로운 대화"
+        return {"title": title}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
