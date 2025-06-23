@@ -26,6 +26,8 @@ export interface AppHeaderProps {
   isRefreshing?: boolean;
   rightComponent?: React.ReactNode;
   backgroundColor?: string;
+  titleColor?: string;
+  iconColor?: string;
   elevated?: boolean;
 }
 
@@ -44,6 +46,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
   isRefreshing = false,
   rightComponent,
   backgroundColor,
+  titleColor,
+  iconColor,
   elevated = true,
 }) => {
   const colors = useThemeColors();
@@ -86,7 +90,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 <Ionicons
                   name="chevron-back"
                   size={24}
-                  color={colors.textPrimary}
+                  color={iconColor || colors.textPrimary}
                 />
               </TouchableOpacity>
             )}
@@ -97,7 +101,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="menu" size={24} color={colors.textPrimary} />
+                <Ionicons
+                  name="menu"
+                  size={24}
+                  color={iconColor || colors.textPrimary}
+                />
               </TouchableOpacity>
             )}
             {showCloseButton && (
@@ -107,7 +115,11 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="close" size={24} color={colors.textPrimary} />
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={iconColor || colors.textPrimary}
+                />
               </TouchableOpacity>
             )}
           </View>
@@ -122,7 +134,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
               >
                 <Text
-                  style={[styles.title, { color: colors.textPrimary }]}
+                  style={[
+                    styles.title,
+                    { color: titleColor || colors.textPrimary },
+                  ]}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
@@ -141,7 +156,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             ) : (
               <>
                 <Text
-                  style={[styles.title, { color: colors.textPrimary }]}
+                  style={[
+                    styles.title,
+                    { color: titleColor || colors.textPrimary },
+                  ]}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
@@ -179,7 +197,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                   name="refresh"
                   size={22}
                   color={
-                    isRefreshing ? colors.textSecondary : colors.textPrimary
+                    isRefreshing
+                      ? colors.textSecondary
+                      : iconColor || colors.textPrimary
                   }
                   style={[
                     styles.refreshIcon,
