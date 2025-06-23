@@ -3,18 +3,20 @@ import { NewsCategory, NewsItem } from "../types/news";
 
 const getSearchQuery = (category: NewsCategory): string => {
   switch (category) {
-    case "us_market":
-      return "(뉴욕증시 OR 다우존스 OR S&P500 OR 나스닥) AND (증시 OR 주가 OR 전망)";
-    case "us_tech":
-      return "(애플 OR 마이크로소프트 OR 구글 OR 메타 OR 엔비디아 OR 테슬라) AND (주가 OR 실적 OR 전망)";
-    case "kr_kospi":
-      return "(코스피 OR 삼성전자 OR SK하이닉스 OR LG에너지솔루션) AND (주가 OR 증시 OR 실적)";
-    case "kr_kosdaq":
-      return "(코스닥 OR 셀트리온 OR 에코프로 OR 카카오게임즈) AND (주가 OR 증시 OR 실적)";
-    case "crypto_bitcoin":
-      return "(비트코인 OR 가상자산) AND (시세 OR 가격 OR 전망)";
-    case "crypto_altcoin":
-      return "(이더리움 OR 리플 OR 솔라나 OR 알트코인) AND (시세 OR 가격 OR 전망)";
+    case "semiconductor":
+      return "(반도체 OR 삼성전자 OR SK하이닉스 OR 메모리 OR D램 OR 낸드플래시 OR HBM OR 시스템반도체) AND (주가 OR 실적 OR 전망 OR 개발)";
+    case "ai":
+      return "(인공지능 OR AI OR 네이버 OR 카카오 OR ChatGPT OR 초거대AI OR 머신러닝 OR 딥러닝) AND (기술 OR 서비스 OR 개발 OR 전망)";
+    case "defense":
+      return "(방산 OR 한화시스템 OR KAI OR 국방 OR 무기체계 OR 군사 OR 방위산업) AND (수주 OR 계약 OR 개발 OR 수출)";
+    case "bio_pharma":
+      return "(바이오 OR 제약 OR 셀트리온 OR 삼성바이오로직스 OR 신약 OR 임상시험 OR 의약품) AND (개발 OR 승인 OR 실적 OR 전망)";
+    case "electric_vehicle":
+      return "(전기차 OR 배터리 OR 현대차 OR 기아 OR LG에너지솔루션 OR 삼성SDI OR 테슬라) AND (개발 OR 생산 OR 판매 OR 전망)";
+    case "renewable_energy":
+      return "(신재생에너지 OR 태양광 OR 풍력 OR 한화큐셀 OR 두산에너빌리티 OR 태양전지) AND (설치 OR 발전 OR 사업 OR 전망)";
+    case "fintech":
+      return "(핀테크 OR 토스 OR 카카오페이 OR 네이버페이 OR 디지털화폐 OR 블록체인 OR 금융기술) AND (서비스 OR 투자 OR 사업 OR 전망)";
     default:
       return ""; // 전체 카테고리일 경우 빈 문자열 반환
   }
@@ -27,9 +29,9 @@ const fetchNewsData = async (
   if (category === "all") {
     // 전체 카테고리일 경우 하나의 통합된 쿼리로 요청
     const combinedQuery = [
-      "(뉴욕증시 OR 다우존스 OR S&P500 OR 나스닥 OR 애플 OR 마이크로소프트 OR 구글 OR 메타 OR 엔비디아 OR 테슬라 OR 코스피 OR 삼성전자 OR SK하이닉스 OR LG에너지솔루션 OR 코스닥 OR 셀트리온 OR 에코프로 OR 카카오게임즈 OR 비트코인 OR 이더리움 OR 리플 OR 솔라나)",
+      "(반도체 OR 삼성전자 OR SK하이닉스 OR 인공지능 OR AI OR 네이버 OR 방산 OR 한화시스템 OR 바이오 OR 제약 OR 셀트리온 OR 전기차 OR 배터리 OR 현대차 OR LG에너지솔루션 OR 신재생에너지 OR 태양광 OR 핀테크 OR 토스)",
       "AND",
-      "(증시 OR 주가 OR 전망 OR 실적 OR 시세 OR 가격)",
+      "(주가 OR 실적 OR 전망 OR 개발 OR 기술 OR 서비스 OR 수주 OR 승인 OR 생산 OR 투자)",
     ].join(" ");
 
     const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
@@ -61,39 +63,63 @@ const fetchNewsData = async (
           ).toLowerCase();
 
           if (
-            content.includes("nasdaq") ||
-            content.includes("s&p") ||
-            content.includes("다우") ||
-            content.includes("뉴욕증시")
+            content.includes("반도체") ||
+            content.includes("메모리") ||
+            content.includes("d램") ||
+            content.includes("낸드") ||
+            content.includes("sk하이닉스") ||
+            (content.includes("삼성전자") &&
+              (content.includes("반도체") || content.includes("메모리")))
           ) {
-            category = "us_market";
+            category = "semiconductor";
           } else if (
-            content.includes("애플") ||
-            content.includes("테슬라") ||
-            content.includes("구글") ||
-            content.includes("메타")
+            content.includes("인공지능") ||
+            content.includes("ai") ||
+            content.includes("머신러닝") ||
+            content.includes("딥러닝") ||
+            content.includes("초거대ai")
           ) {
-            category = "us_tech";
+            category = "ai";
           } else if (
-            content.includes("코스피") ||
-            content.includes("삼성전자") ||
-            content.includes("sk하이닉스")
+            content.includes("방산") ||
+            content.includes("한화시스템") ||
+            content.includes("국방") ||
+            content.includes("무기") ||
+            content.includes("kai")
           ) {
-            category = "kr_kospi";
+            category = "defense";
           } else if (
-            content.includes("코스닥") ||
+            content.includes("바이오") ||
+            content.includes("제약") ||
             content.includes("셀트리온") ||
-            content.includes("에코프로")
+            content.includes("신약") ||
+            content.includes("임상")
           ) {
-            category = "kr_kosdaq";
-          } else if (content.includes("비트코인")) {
-            category = "crypto_bitcoin";
+            category = "bio_pharma";
           } else if (
-            content.includes("이더리움") ||
-            content.includes("리플") ||
-            content.includes("솔라나")
+            content.includes("전기차") ||
+            content.includes("배터리") ||
+            content.includes("lg에너지솔루션") ||
+            content.includes("삼성sdi") ||
+            (content.includes("현대차") && content.includes("전기"))
           ) {
-            category = "crypto_altcoin";
+            category = "electric_vehicle";
+          } else if (
+            content.includes("태양광") ||
+            content.includes("풍력") ||
+            content.includes("신재생") ||
+            content.includes("한화큐셀") ||
+            content.includes("두산에너빌리티")
+          ) {
+            category = "renewable_energy";
+          } else if (
+            content.includes("핀테크") ||
+            content.includes("토스") ||
+            content.includes("카카오페이") ||
+            content.includes("네이버페이") ||
+            content.includes("금융기술")
+          ) {
+            category = "fintech";
           }
 
           return {

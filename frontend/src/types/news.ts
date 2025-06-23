@@ -1,11 +1,12 @@
 export type NewsCategory =
   | "all"
-  | "us_market"
-  | "us_tech"
-  | "kr_kospi"
-  | "kr_kosdaq"
-  | "crypto_bitcoin"
-  | "crypto_altcoin";
+  | "semiconductor"
+  | "ai"
+  | "defense"
+  | "bio_pharma"
+  | "electric_vehicle"
+  | "renewable_energy"
+  | "fintech";
 
 export type NewsItem = {
   id: string;
