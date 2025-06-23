@@ -1,18 +1,20 @@
 import React, { useState } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { addMonths } from "date-fns";
 import { useThemeColors } from "../theme/colors";
 import { getInitialMonth } from "../utils/calendarUtils";
 import { useCalendarEvents } from "../hooks/useCalendarEvents";
 import {
-  CalendarHeader,
   MonthNavigation,
   EventCard,
   EmptyEvents,
 } from "../components/calendar";
+import AppHeader from "../components/AppHeader";
 
 const CalendarScreen = () => {
+  const navigation = useNavigation();
   const colors = useThemeColors();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(getInitialMonth());
@@ -32,27 +34,39 @@ const CalendarScreen = () => {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
-      <CalendarHeader title="투자 일정" />
-
-      <MonthNavigation
-        currentMonth={currentMonth}
-        onPrevMonth={handlePrevMonth}
-        onNextMonth={handleNextMonth}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <AppHeader
+        title="투자 일정"
+        showBackButton={true}
+        onBackPress={() => navigation.goBack()}
+        backgroundColor={colors.cardBackground}
+        elevated={true}
       />
 
-      <ScrollView style={styles.content}>
-        {filteredEvents.length === 0 ? (
-          <EmptyEvents />
-        ) : (
-          filteredEvents.map((event, index) => (
-            <EventCard key={index} event={event} onPress={handleEventPress} />
-          ))
-        )}
-      </ScrollView>
-    </SafeAreaView>
+      <View style={styles.mainContent}>
+        <View style={styles.navigationWrapper}>
+          <MonthNavigation
+            currentMonth={currentMonth}
+            onPrevMonth={handlePrevMonth}
+            onNextMonth={handleNextMonth}
+          />
+        </View>
+
+        <ScrollView
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {filteredEvents.length === 0 ? (
+            <EmptyEvents />
+          ) : (
+            filteredEvents.map((event, index) => (
+              <EventCard key={index} event={event} onPress={handleEventPress} />
+            ))
+          )}
+        </ScrollView>
+      </View>
+    </View>
   );
 };
 
@@ -60,9 +74,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  mainContent: {
     flex: 1,
+  },
+  navigationWrapper: {
+    paddingBottom: 8,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
     padding: 20,
+    paddingTop: 8,
   },
 });
 

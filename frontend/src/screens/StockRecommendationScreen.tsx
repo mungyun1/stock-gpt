@@ -16,6 +16,7 @@ import { mockStockCategories } from "../data/mockStockData";
 import { StockCategory, StockRecommendation } from "../types/stock";
 import { RootStackParamList } from "../types/navigation";
 import { useThemeColors } from "../theme/colors";
+import AppHeader from "../components/AppHeader";
 
 const { width } = Dimensions.get("window");
 
@@ -237,66 +238,57 @@ const StockRecommendationScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.cardBackground,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-          주식 추천
-        </Text>
-        <View style={styles.backButton} />
-      </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <AppHeader
+        title="주식 추천"
+        showBackButton={true}
+        onBackPress={() => navigation.goBack()}
+        backgroundColor={colors.cardBackground}
+        elevated={true}
+      />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {!selectedCategory ? (
-          <View style={styles.categoriesContainer}>
-            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-              카테고리 선택
-            </Text>
-            {mockStockCategories.map(renderCategoryCard)}
-          </View>
-        ) : (
-          <View style={styles.stocksContainer}>
-            <View style={styles.categoryHeader}>
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => setSelectedCategory(null)}
+      <SafeAreaView style={styles.content} edges={["bottom"]}>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {!selectedCategory ? (
+            <View style={styles.categoriesContainer}>
+              <Text
+                style={[styles.sectionTitle, { color: colors.textPrimary }]}
               >
-                <Ionicons name="arrow-back" size={24} color="#007AFF" />
-              </TouchableOpacity>
-              <View style={styles.categoryInfo}>
-                <Text style={styles.categoryIcon}>{selectedCategory.icon}</Text>
-                <Text style={styles.selectedCategoryTitle}>
-                  {selectedCategory.name}
-                </Text>
+                카테고리 선택
+              </Text>
+              {mockStockCategories.map(renderCategoryCard)}
+            </View>
+          ) : (
+            <View style={styles.stocksContainer}>
+              <View style={styles.categoryHeader}>
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={() => setSelectedCategory(null)}
+                >
+                  <Ionicons name="arrow-back" size={24} color="#007AFF" />
+                </TouchableOpacity>
+                <View style={styles.categoryInfo}>
+                  <Text style={styles.categoryIcon}>
+                    {selectedCategory.icon}
+                  </Text>
+                  <Text style={styles.selectedCategoryTitle}>
+                    {selectedCategory.name}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.categoryDescription}>
+                {selectedCategory.description}
+              </Text>
+
+              <View style={styles.stocksList}>
+                {selectedCategory.stocks.map(renderStockCard)}
               </View>
             </View>
-
-            <Text style={styles.categoryDescription}>
-              {selectedCategory.description}
-            </Text>
-
-            <View style={styles.stocksList}>
-              {selectedCategory.stocks.map(renderStockCard)}
-            </View>
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 };
 
@@ -304,24 +296,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderBottomWidth: 1,
+
+  content: {
+    flex: 1,
   },
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     minWidth: 60,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
-  },
-  content: {
-    flex: 1,
   },
   categoriesContainer: {
     padding: 20,

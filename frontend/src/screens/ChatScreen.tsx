@@ -22,6 +22,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useThemeColors } from "../theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Markdown from "react-native-markdown-display";
+import AppHeader from "../components/AppHeader";
 
 type RootStackParamList = {
   Home: undefined;
@@ -989,41 +990,22 @@ const ChatScreen = () => {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      edges={["top"]}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <AppHeader
+        title="Stock GPT"
+        showMenuButton={true}
+        showRefreshButton={true}
+        onMenuPress={toggleSidebar}
+        onRefreshPress={() => {}}
+        onTitlePress={() => navigation.goBack()}
+        backgroundColor={colors.cardBackground}
+        elevated={true}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={[styles.container, { backgroundColor: colors.background }]}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        {/* Header */}
-        <View
-          style={[
-            styles.header,
-            {
-              backgroundColor: colors.cardBackground,
-              borderBottomColor: colors.border,
-            },
-          ]}
-        >
-          <TouchableOpacity onPress={toggleSidebar} style={styles.headerButton}>
-            <Ionicons name="menu" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.headerTitleButton}
-          >
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-              Stock GPT
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton}>
-            <Ionicons name="refresh" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
         {/* Chat Messages */}
         <ScrollView
           style={styles.messagesContainer}
@@ -1440,7 +1422,7 @@ const ChatScreen = () => {
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -1559,31 +1541,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     letterSpacing: -0.3,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: Platform.OS === "ios" ? 12 : 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    height: Platform.OS === "ios" ? 56 : 64,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitleButton: {
-    flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: -0.5,
-  },
+
   messagesContainer: {
     flex: 1,
   },
