@@ -1,4 +1,4 @@
-import React, { FC, ReactNode, useState } from "react";
+import React, { FC, ReactNode } from "react";
 import {
   View,
   StyleSheet,
@@ -49,13 +49,13 @@ const FeatureButton: FC<FeatureButtonProps> = ({
   isPrimary = false,
 }) => {
   const colors = useThemeColors();
-  const [isPressed, setIsPressed] = useState(false);
+  const isPressed = useSharedValue(false);
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [
         {
-          scale: withSpring(isPressed ? 0.95 : 1, {
+          scale: withSpring(isPressed.value ? 0.95 : 1, {
             damping: 15,
             stiffness: 300,
           }),
@@ -74,8 +74,12 @@ const FeatureButton: FC<FeatureButtonProps> = ({
         animatedStyle,
       ]}
       onPress={onPress}
-      onPressIn={() => setIsPressed(true)}
-      onPressOut={() => setIsPressed(false)}
+      onPressIn={() => {
+        isPressed.value = true;
+      }}
+      onPressOut={() => {
+        isPressed.value = false;
+      }}
     >
       <View
         style={[
@@ -116,7 +120,7 @@ const HomeScreen = () => {
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <View style={styles.content}>
         <View style={styles.mainSection}>
           <HeaderSection />
           <View style={styles.gridContainer}>
@@ -125,7 +129,7 @@ const HomeScreen = () => {
                 icon={
                   <MaterialCommunityIcons
                     name="chart-line"
-                    size={28}
+                    size={32}
                     color="#FFFFFF"
                   />
                 }
@@ -136,7 +140,7 @@ const HomeScreen = () => {
                 isPrimary
               />
               <FeatureButton
-                icon={<Ionicons name="calendar" size={24} color="#F57C00" />}
+                icon={<Ionicons name="calendar" size={28} color="#F57C00" />}
                 title="캘린더"
                 subtitle="일정 관리"
                 onPress={() => navigation.navigate("Calendar")}
@@ -146,10 +150,10 @@ const HomeScreen = () => {
             <View style={styles.gridRow}>
               <FeatureButton
                 icon={
-                  <FontAwesome5 name="newspaper" size={20} color="#388E3C" />
+                  <FontAwesome5 name="newspaper" size={24} color="#388E3C" />
                 }
                 title="시장 동향"
-                subtitle="뉴스 & 분석"
+                subtitle="섹터별 뉴스"
                 onPress={() => navigation.navigate("MarketNews")}
                 iconBgColor="#E8F5E8"
               />
@@ -157,7 +161,7 @@ const HomeScreen = () => {
                 icon={
                   <MaterialCommunityIcons
                     name="trending-up"
-                    size={24}
+                    size={28}
                     color="#7B1FA2"
                   />
                 }
@@ -169,7 +173,7 @@ const HomeScreen = () => {
             </View>
           </View>
         </View>
-      </ScrollView>
+      </View>
 
       <FeaturesModal
         visible={showModal}
@@ -184,12 +188,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
+  content: {
+    flex: 1,
+    justifyContent: "center",
   },
   mainSection: {
     alignItems: "center",
-    paddingVertical: 32,
+    paddingVertical: 20,
     width: "100%",
   },
   gridContainer: {
@@ -224,35 +229,38 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   primaryIconContainer: {
     backgroundColor: "rgba(255, 255, 255, 0.2)",
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    marginBottom: 8,
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    marginBottom: 10,
   },
   buttonTitle: {
     fontSize: 16,
     fontFamily: "Inter_600SemiBold",
-    marginBottom: 4,
+    marginBottom: 6,
     textAlign: "center",
+    lineHeight: 22,
   },
   primaryButtonTitle: {
     color: "#FFFFFF",
     fontSize: 18,
+    lineHeight: 24,
   },
   buttonSubtitle: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
     color: "#999999",
     textAlign: "center",
+    lineHeight: 18,
   },
   primaryButtonSubtitle: {
     color: "rgba(255, 255, 255, 0.8)",

@@ -12,27 +12,55 @@ const HeaderSection: FC<HeaderSectionProps> = ({ marginTop = 48 }) => {
   return (
     <View style={[styles.headerContainer, { marginTop }]}>
       <View style={styles.header}>
-        <Image
-          source={require("../../assets/logo.png")}
-          style={{
-            width: 240,
-            height: 120,
-            resizeMode: "contain",
-          }}
-        />
-        <Text
-          style={[
-            styles.subtitle,
-            {
-              color: colors.textSecondary,
-              fontSize: 20,
-              marginBottom: 32,
-              opacity: 0.7,
-            },
-          ]}
-        >
-          투자 조언을 받아보세요!
-        </Text>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require("../../assets/logo.png")}
+            style={styles.logo}
+          />
+        </View>
+
+        <View style={styles.taglineContainer}>
+          <Text
+            style={[
+              styles.mainTagline,
+              {
+                color: colors.textPrimary,
+              },
+            ]}
+          >
+            나만의 투자 도우미
+          </Text>
+          <View
+            style={[styles.underline, { backgroundColor: colors.accent }]}
+          />
+
+          <Text
+            style={[
+              styles.subtitle,
+              {
+                color: colors.textSecondary,
+              },
+            ]}
+          >
+            Stock GPT와 함께하는 투자
+          </Text>
+
+          <View style={styles.featureContainer}>
+            <View style={styles.featureBadge}>
+              <Text style={styles.badgeEmoji}>🤖</Text>
+              <Text style={[styles.badgeText, { color: colors.textPrimary }]}>
+                AI 분석
+              </Text>
+            </View>
+
+            <View style={styles.featureBadge}>
+              <Text style={styles.badgeEmoji}>🎯</Text>
+              <Text style={[styles.badgeText, { color: colors.textPrimary }]}>
+                맞춤형
+              </Text>
+            </View>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -41,16 +69,70 @@ const HeaderSection: FC<HeaderSectionProps> = ({ marginTop = 48 }) => {
 const styles = StyleSheet.create({
   headerContainer: {
     alignItems: "center",
-    marginBottom: 40,
+    marginBottom: 32,
+    width: "100%",
+    paddingHorizontal: 20,
   },
   header: {
     alignItems: "center",
+    width: "100%",
+  },
+  logoContainer: {
+    marginBottom: 24,
+  },
+  logo: {
+    width: 280,
+    height: 140,
+    resizeMode: "contain",
+  },
+  taglineContainer: {
+    alignItems: "center",
+    width: "100%",
+  },
+  mainTagline: {
+    fontSize: 28,
+    fontFamily: "Inter_700Bold",
+    marginBottom: 8,
+    textAlign: "center",
+    letterSpacing: -1,
+  },
+  underline: {
+    height: 4,
+    width: 80,
+    borderRadius: 2,
+    marginBottom: 16,
   },
   subtitle: {
-    fontSize: 20,
-    fontFamily: "Inter_400Regular",
-    opacity: 0.7,
-    marginBottom: 32,
+    fontSize: 17,
+    fontFamily: "Inter_500Medium",
+    opacity: 0.75,
+    marginBottom: 24,
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  featureContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  featureBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(99, 102, 241, 0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(99, 102, 241, 0.15)",
+  },
+  badgeEmoji: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  badgeText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
   },
 });
 
