@@ -1,5 +1,4 @@
 export type NewsCategory =
-  | "all"
   | "semiconductor"
   | "ai"
   | "defense"

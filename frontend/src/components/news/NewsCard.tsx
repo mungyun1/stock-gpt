@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { useThemeColors } from "../../theme/colors";
 import { NewsItem } from "../../types/news";
 import { formatDate } from "../../utils/dateUtils";
-import { getDomainFromUrl } from "../../utils/urlUtils";
 
 interface NewsCardProps {
   news: NewsItem;
@@ -14,26 +13,36 @@ interface NewsCardProps {
 export const NewsCard = ({ news, onPress, colors }: NewsCardProps) => {
   return (
     <TouchableOpacity
-      style={[styles.newsCard, { backgroundColor: colors.cardBackground }]}
+      style={[styles.newsCard, { backgroundColor: "#ffffff" }]}
       onPress={() => onPress(news.url)}
       activeOpacity={0.7}
     >
-      <View style={styles.imageContainer}>
-        <Image source={{ uri: news.imageUrl }} style={styles.newsImage} />
-        <Text style={[styles.domain, { color: colors.accent }]}>
-          {getDomainFromUrl(news.url)}
-        </Text>
+      {/* 썸네일 이미지 */}
+      <View style={styles.thumbnailContainer}>
+        <Image source={{ uri: news.imageUrl }} style={styles.thumbnail} />
       </View>
-      <View style={styles.newsContent}>
-        <View>
-          <Text style={[styles.newsTitle, { color: colors.textPrimary }]}>
-            {news.title}
-          </Text>
-        </View>
-        <View style={styles.newsFooter}>
-          <Text style={[styles.newsTime, { color: colors.textSecondary }]}>
-            {formatDate(news.date)}
-          </Text>
+
+      {/* 뉴스 콘텐츠 */}
+      <View style={styles.contentContainer}>
+        {/* 뉴스 제목 */}
+        <Text
+          style={[styles.title, { color: colors.textPrimary }]}
+          numberOfLines={2}
+        >
+          {news.title}
+        </Text>
+
+        {/* 뉴스 하단 정보 */}
+        <View style={styles.metaContainer}>
+          <View style={styles.sourceTimeContainer}>
+            <Text style={[styles.source, { color: colors.textSecondary }]}>
+              {news.source}
+            </Text>
+            <Text style={[styles.dot, { color: colors.textSecondary }]}>·</Text>
+            <Text style={[styles.time, { color: colors.textSecondary }]}>
+              {formatDate(news.date)}
+            </Text>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -43,57 +52,63 @@ export const NewsCard = ({ news, onPress, colors }: NewsCardProps) => {
 const styles = StyleSheet.create({
   newsCard: {
     flexDirection: "row",
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
     marginHorizontal: 16,
+    marginBottom: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
   },
-  imageContainer: {
-    width: 120,
-    marginVertical: 12,
-    marginHorizontal: 12,
-    alignItems: "center",
+  thumbnailContainer: {
+    marginRight: 12,
   },
-  newsImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 12,
-    marginBottom: 6,
+  thumbnail: {
+    width: 80,
+    height: 80,
   },
-  domain: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    marginTop: 4,
-  },
-  newsContent: {
+  contentContainer: {
     flex: 1,
-    padding: 12,
     justifyContent: "space-between",
   },
-  newsTitle: {
-    fontSize: 15,
+  title: {
+    fontSize: 16,
     fontFamily: "Inter_600SemiBold",
-    marginBottom: 8,
     lineHeight: 22,
+    marginBottom: 8,
+    color: "#1a1a1a",
   },
-  newsFooter: {
+  metaContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: "auto",
   },
-  newsTime: {
-    fontSize: 12,
+  sourceTimeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  source: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    color: "#666666",
+  },
+  dot: {
+    fontSize: 13,
+    marginHorizontal: 6,
+    color: "#666666",
+  },
+  time: {
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
-    opacity: 0.6,
-    minWidth: 90,
+    color: "#888888",
+  },
+  commentContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
 });

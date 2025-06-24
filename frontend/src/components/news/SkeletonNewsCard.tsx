@@ -32,43 +32,21 @@ export const SkeletonNewsCard = ({ colors }: SkeletonNewsCardProps) => {
   });
 
   return (
-    <View
-      style={[
-        styles.newsCard,
-        {
-          backgroundColor: colors.cardBackground,
-          marginHorizontal: 16,
-          marginBottom: 16,
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.imageContainer,
-          { marginVertical: 12, marginHorizontal: 12 },
-        ]}
-      >
+    <View style={styles.newsCard}>
+      {/* 썸네일 이미지 스켈레톤 */}
+      <View style={styles.thumbnailContainer}>
         <Animated.View
           style={[
-            {
-              width: 120,
-              height: 120,
-              borderRadius: 12,
-              marginBottom: 6,
-            },
-            styles.skeleton,
-            { opacity, backgroundColor: colors.border },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.skeletonDomain,
+            styles.thumbnail,
             styles.skeleton,
             { opacity, backgroundColor: colors.border },
           ]}
         />
       </View>
-      <View style={[styles.newsContent, { flex: 1, padding: 12 }]}>
+
+      {/* 뉴스 콘텐츠 스켈레톤 */}
+      <View style={styles.contentContainer}>
+        {/* 제목 스켈레톤 */}
         <View>
           <Animated.View
             style={[
@@ -77,15 +55,33 @@ export const SkeletonNewsCard = ({ colors }: SkeletonNewsCardProps) => {
               { opacity, backgroundColor: colors.border },
             ]}
           />
-        </View>
-        <View style={[styles.newsFooter, { marginTop: 8 }]}>
           <Animated.View
             style={[
-              styles.skeletonTime,
+              styles.skeletonTitleSecond,
               styles.skeleton,
               { opacity, backgroundColor: colors.border },
             ]}
           />
+        </View>
+
+        {/* 메타 정보 스켈레톤 */}
+        <View style={styles.metaContainer}>
+          <View style={styles.sourceTimeContainer}>
+            <Animated.View
+              style={[
+                styles.skeletonSource,
+                styles.skeleton,
+                { opacity, backgroundColor: colors.border },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.skeletonTime,
+                styles.skeleton,
+                { opacity, backgroundColor: colors.border },
+              ]}
+            />
+          </View>
         </View>
       </View>
     </View>
@@ -95,43 +91,56 @@ export const SkeletonNewsCard = ({ colors }: SkeletonNewsCardProps) => {
 const styles = StyleSheet.create({
   newsCard: {
     flexDirection: "row",
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    marginHorizontal: 16,
+    marginBottom: 1,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
   },
-  imageContainer: {
-    width: 120,
-    alignItems: "center",
+  thumbnailContainer: {
+    marginRight: 12,
   },
-  newsContent: {
+  thumbnail: {
+    width: 80,
+    height: 80,
+  },
+  contentContainer: {
+    flex: 1,
     justifyContent: "space-between",
   },
-  newsFooter: {
+  metaContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginTop: "auto",
+  },
+  sourceTimeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 8,
   },
   skeleton: {
-    borderRadius: 12,
+    borderRadius: 4,
   },
   skeletonTitle: {
-    height: 44,
-    width: "100%",
+    height: 16,
+    width: "90%",
+    marginBottom: 6,
   },
-  skeletonDomain: {
-    height: 13,
-    width: 80,
-    marginTop: 4,
+  skeletonTitleSecond: {
+    height: 16,
+    width: "70%",
+    marginBottom: 8,
+  },
+  skeletonSource: {
+    height: 12,
+    width: 60,
   },
   skeletonTime: {
     height: 12,
-    width: 60,
+    width: 50,
   },
 });

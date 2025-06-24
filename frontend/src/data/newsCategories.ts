@@ -1,7 +1,6 @@
 import { NewsCategory, NewsItem } from "../types/news";
 
 export const newsCategories = [
-  { id: "all", name: "전체" },
   { id: "semiconductor", name: "반도체" },
   { id: "ai", name: "AI" },
   { id: "defense", name: "방산" },

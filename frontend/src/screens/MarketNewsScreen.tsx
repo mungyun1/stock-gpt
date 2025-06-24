@@ -33,7 +33,8 @@ type NewsResponse = {
 const MarketNewsScreen = () => {
   const navigation = useNavigation();
   const colors = useThemeColors();
-  const [selectedCategory, setSelectedCategory] = useState<NewsCategory>("all");
+  const [selectedCategory, setSelectedCategory] =
+    useState<NewsCategory>("semiconductor");
 
   const {
     data,
@@ -99,59 +100,55 @@ const MarketNewsScreen = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: "#ffffff" }]}>
       <AppHeader
-        title="시장 뉴스"
+        title="시장 동향"
         showBackButton={true}
         showRefreshButton={true}
         onBackPress={() => navigation.goBack()}
         onRefreshPress={onRefresh}
         isRefreshing={isFetching}
-        backgroundColor={colors.cardBackground}
-        elevated={true}
       />
 
-      <SafeAreaView style={styles.container} edges={["bottom"]}>
-        <CategorySelector
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          colors={colors}
-        />
+      <CategorySelector
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        colors={colors}
+      />
 
-        <ScrollView
-          style={styles.newsList}
-          refreshControl={
-            <RefreshControl
-              refreshing={isFetching && !isFetchingNextPage}
-              onRefresh={onRefresh}
-            />
-          }
-          onScroll={({ nativeEvent }) => handleScroll(nativeEvent)}
-          scrollEventThrottle={16}
-        >
-          {isLoading ? (
-            <View>
-              {[1, 2, 3, 4, 5].map((index) => (
-                <SkeletonNewsCard key={index} colors={colors} />
-              ))}
-            </View>
-          ) : isError ? (
-            <ErrorView error={error} onRetry={onRefresh} colors={colors} />
-          ) : (
-            <>
-              {allNews.map((news: NewsItem) => (
-                <NewsCard
-                  key={news.id}
-                  news={news}
-                  onPress={handleNewsPress}
-                  colors={colors}
-                />
-              ))}
-              {renderFooter()}
-            </>
-          )}
-        </ScrollView>
-      </SafeAreaView>
+      <ScrollView
+        style={styles.newsList}
+        refreshControl={
+          <RefreshControl
+            refreshing={isFetching && !isFetchingNextPage}
+            onRefresh={onRefresh}
+          />
+        }
+        onScroll={({ nativeEvent }) => handleScroll(nativeEvent)}
+        scrollEventThrottle={16}
+      >
+        {isLoading ? (
+          <View>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((index) => (
+              <SkeletonNewsCard key={index} colors={colors} />
+            ))}
+          </View>
+        ) : isError ? (
+          <ErrorView error={error} onRetry={onRefresh} colors={colors} />
+        ) : (
+          <>
+            {allNews.map((news: NewsItem) => (
+              <NewsCard
+                key={news.id}
+                news={news}
+                onPress={handleNewsPress}
+                colors={colors}
+              />
+            ))}
+            {renderFooter()}
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 };
@@ -162,7 +159,7 @@ const styles = StyleSheet.create({
   },
   newsList: {
     flex: 1,
-    paddingTop: 16,
+    backgroundColor: "#ffffff",
   },
   loadingFooter: {
     paddingVertical: 20,

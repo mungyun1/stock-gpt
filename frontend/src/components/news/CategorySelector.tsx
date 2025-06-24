@@ -22,69 +22,73 @@ export const CategorySelector = ({
   colors,
 }: CategorySelectorProps) => {
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.categoriesContainer}
-      contentContainerStyle={styles.categories}
-    >
-      {newsCategories.map((category) => (
-        <TouchableOpacity
-          key={category.id}
-          style={[
-            styles.categoryButton,
-            selectedCategory === category.id && styles.categoryButtonActive,
-            {
-              backgroundColor:
-                selectedCategory === category.id
-                  ? colors.accent
-                  : colors.cardBackground,
-              borderColor: colors.border,
-            },
-          ]}
-          onPress={() => onCategoryChange(category.id as NewsCategory)}
-        >
-          <Text
+    <View style={styles.container}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+      >
+        {newsCategories.map((category) => (
+          <TouchableOpacity
+            key={category.id}
             style={[
-              styles.categoryText,
-              {
-                color:
-                  selectedCategory === category.id
-                    ? "#FFFFFF"
-                    : colors.textPrimary,
-              },
+              styles.categoryButton,
+              selectedCategory === category.id && styles.categoryButtonActive,
             ]}
+            onPress={() => onCategoryChange(category.id as NewsCategory)}
+            activeOpacity={0.7}
           >
-            {category.name}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
+            <Text
+              style={[
+                styles.categoryText,
+                selectedCategory === category.id && styles.categoryTextActive,
+              ]}
+            >
+              {category.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  categoriesContainer: {
-    maxHeight: 60,
+  container: {
+    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+    borderBottomColor: "#f0f0f0",
+    paddingBottom: 4,
   },
-  categories: {
-    padding: 12,
-    paddingHorizontal: 16,
-    gap: 8,
+  scrollView: {
+    flexGrow: 0,
+  },
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    gap: 12,
   },
   categoryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    backgroundColor: "transparent",
+    minWidth: 60,
+    alignItems: "center",
+    justifyContent: "center",
   },
   categoryButtonActive: {
-    borderWidth: 0,
+    borderBottomWidth: 2,
+    borderBottomColor: "#0B4619",
   },
   categoryText: {
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
+    color: "#666666",
+    textAlign: "center",
+  },
+  categoryTextActive: {
+    color: "#0B4619",
+    fontFamily: "Inter_700Bold",
   },
 });
