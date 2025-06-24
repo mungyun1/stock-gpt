@@ -987,9 +987,9 @@ const ChatScreen = () => {
       <AppHeader
         title="Stock GPT"
         showMenuButton={true}
-        showRefreshButton={true}
+        showHomeButton={true}
         onMenuPress={toggleSidebar}
-        onRefreshPress={() => {}}
+        onHomePress={() => navigation.goBack()}
         onTitlePress={() => navigation.goBack()}
         backgroundColor={colors.cardBackground}
         elevated={true}

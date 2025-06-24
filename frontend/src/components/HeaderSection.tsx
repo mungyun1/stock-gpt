@@ -6,11 +6,11 @@ interface HeaderSectionProps {
   marginTop?: number;
 }
 
-const HeaderSection: FC<HeaderSectionProps> = ({ marginTop = 48 }) => {
+const HeaderSection: FC<HeaderSectionProps> = () => {
   const colors = useThemeColors();
 
   return (
-    <View style={[styles.headerContainer, { marginTop }]}>
+    <View style={styles.headerContainer}>
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Image
@@ -69,7 +69,8 @@ const HeaderSection: FC<HeaderSectionProps> = ({ marginTop = 48 }) => {
 const styles = StyleSheet.create({
   headerContainer: {
     alignItems: "center",
-    marginBottom: 32,
+    marginTop: 28,
+    marginBottom: 28,
     width: "100%",
     paddingHorizontal: 20,
   },

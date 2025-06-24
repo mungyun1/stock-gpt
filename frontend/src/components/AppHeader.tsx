@@ -16,14 +16,13 @@ export interface AppHeaderProps {
   subtitle?: string;
   showBackButton?: boolean;
   showMenuButton?: boolean;
-  showRefreshButton?: boolean;
+  showHomeButton?: boolean;
   showCloseButton?: boolean;
   onBackPress?: () => void;
   onMenuPress?: () => void;
-  onRefreshPress?: () => void;
+  onHomePress?: () => void;
   onClosePress?: () => void;
   onTitlePress?: () => void;
-  isRefreshing?: boolean;
   rightComponent?: ReactNode;
   backgroundColor?: string;
   elevated?: boolean;
@@ -34,14 +33,13 @@ const AppHeader: FC<AppHeaderProps> = ({
   subtitle,
   showBackButton = false,
   showMenuButton = false,
-  showRefreshButton = false,
+  showHomeButton = false,
   showCloseButton = false,
   onBackPress,
   onMenuPress,
-  onRefreshPress,
+  onHomePress,
   onClosePress,
   onTitlePress,
-  isRefreshing = false,
   rightComponent,
   backgroundColor,
   elevated = true,
@@ -163,29 +161,14 @@ const AppHeader: FC<AppHeaderProps> = ({
           {/* Right Side */}
           <View style={styles.rightSection}>
             {rightComponent}
-            {showRefreshButton && (
+            {showHomeButton && (
               <TouchableOpacity
-                style={[
-                  styles.iconButton,
-                  styles.actionButton,
-                  isRefreshing && styles.refreshingButton,
-                ]}
-                onPress={onRefreshPress}
-                disabled={isRefreshing}
+                style={[styles.iconButton, styles.actionButton]}
+                onPress={onHomePress}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.7}
               >
-                <Ionicons
-                  name="refresh"
-                  size={22}
-                  color={
-                    isRefreshing ? colors.textSecondary : colors.textPrimary
-                  }
-                  style={[
-                    styles.refreshIcon,
-                    isRefreshing && styles.refreshing,
-                  ]}
-                />
+                <Ionicons name="home" size={22} color={colors.textPrimary} />
               </TouchableOpacity>
             )}
           </View>
@@ -244,13 +227,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     backgroundColor: "transparent",
-  },
-  refreshingButton: {
-    opacity: 0.5,
-  },
-  refreshIcon: {},
-  refreshing: {
-    transform: [{ rotate: "180deg" }],
   },
   titleButton: {
     alignItems: "center",

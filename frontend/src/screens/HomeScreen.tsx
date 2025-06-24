@@ -120,60 +120,67 @@ const HomeScreen = () => {
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <View style={styles.content}>
-        <View style={styles.mainSection}>
-          <HeaderSection />
-          <View style={styles.gridContainer}>
-            <View style={styles.gridRow}>
-              <FeatureButton
-                icon={
-                  <MaterialCommunityIcons
-                    name="chart-line"
-                    size={32}
-                    color="#FFFFFF"
-                  />
-                }
-                title="주식 분석"
-                subtitle="AI 기반 분석"
-                onPress={() => navigation.navigate("Chat")}
-                iconBgColor="#E3F2FD"
-                isPrimary
-              />
-              <FeatureButton
-                icon={<Ionicons name="calendar" size={28} color="#F57C00" />}
-                title="캘린더"
-                subtitle="일정 관리"
-                onPress={() => navigation.navigate("Calendar")}
-                iconBgColor="#FFF3E0"
-              />
-            </View>
-            <View style={styles.gridRow}>
-              <FeatureButton
-                icon={
-                  <FontAwesome5 name="newspaper" size={24} color="#388E3C" />
-                }
-                title="시장 동향"
-                subtitle="섹터별 뉴스"
-                onPress={() => navigation.navigate("MarketNews")}
-                iconBgColor="#E8F5E8"
-              />
-              <FeatureButton
-                icon={
-                  <MaterialCommunityIcons
-                    name="trending-up"
-                    size={28}
-                    color="#7B1FA2"
-                  />
-                }
-                title="주식 추천"
-                subtitle="TOP5 종목"
-                onPress={() => navigation.navigate("StockCategory")}
-                iconBgColor="#F3E5F5"
-              />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <View style={styles.content}>
+          <View style={styles.mainSection}>
+            <HeaderSection />
+            <View style={styles.gridContainer}>
+              <View style={styles.gridRow}>
+                <FeatureButton
+                  icon={
+                    <MaterialCommunityIcons
+                      name="chart-line"
+                      size={32}
+                      color="#FFFFFF"
+                    />
+                  }
+                  title="주식 분석"
+                  subtitle="AI 기반 분석"
+                  onPress={() => navigation.navigate("Chat")}
+                  iconBgColor="#E3F2FD"
+                  isPrimary
+                />
+                <FeatureButton
+                  icon={<Ionicons name="calendar" size={28} color="#F57C00" />}
+                  title="캘린더"
+                  subtitle="일정 관리"
+                  onPress={() => navigation.navigate("Calendar")}
+                  iconBgColor="#FFF3E0"
+                />
+              </View>
+              <View style={styles.gridRow}>
+                <FeatureButton
+                  icon={
+                    <FontAwesome5 name="newspaper" size={24} color="#388E3C" />
+                  }
+                  title="시장 동향"
+                  subtitle="섹터별 뉴스"
+                  onPress={() => navigation.navigate("MarketNews")}
+                  iconBgColor="#E8F5E8"
+                />
+                <FeatureButton
+                  icon={
+                    <MaterialCommunityIcons
+                      name="trending-up"
+                      size={28}
+                      color="#7B1FA2"
+                    />
+                  }
+                  title="주식 추천"
+                  subtitle="TOP5 종목"
+                  onPress={() => navigation.navigate("StockCategory")}
+                  iconBgColor="#F3E5F5"
+                />
+              </View>
             </View>
           </View>
         </View>
-      </View>
+      </ScrollView>
 
       <FeaturesModal
         visible={showModal}
@@ -187,6 +194,12 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
+    flexGrow: 1,
   },
   content: {
     flex: 1,
