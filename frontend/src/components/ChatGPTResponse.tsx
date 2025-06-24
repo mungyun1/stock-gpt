@@ -1,4 +1,4 @@
-import React from "react";
+import React, { FC } from "react";
 import { View, StyleSheet, ActivityIndicator } from "react-native";
 import { useThemeColors } from "../theme/colors";
 import MarkdownRenderer from "./MarkdownRenderer";
@@ -8,7 +8,7 @@ interface Props {
   isLoading?: boolean;
 }
 
-const ChatGPTResponse: React.FC<Props> = ({ content, isLoading }) => {
+const ChatGPTResponse: FC<Props> = ({ content, isLoading }) => {
   const colors = useThemeColors();
 
   if (isLoading) {

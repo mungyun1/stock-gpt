@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Dimensions,
   Alert,
   Pressable,
+  ListRenderItem,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +24,8 @@ import { useThemeColors } from "../theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Markdown from "react-native-markdown-display";
 import AppHeader from "../components/AppHeader";
+import { Message } from "../types/chat";
+import ChatGPTResponse from "../components/ChatGPTResponse";
 
 type RootStackParamList = {
   Home: undefined;
@@ -34,16 +37,6 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type MessageLink = {
   text: string;
   url: string;
-};
-
-type Message = {
-  text: string;
-  isUser: boolean;
-  id: string;
-  createdAt: Date;
-  links?: MessageLink[];
-  error?: boolean;
-  lastUserMessage?: string;
 };
 
 type Thread = {
@@ -161,7 +154,7 @@ const ChatScreen = () => {
 
   // React Navigation 제스처 비활성화
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       navigation.setOptions({
         gestureEnabled: false,
         gestureDirection: "horizontal",

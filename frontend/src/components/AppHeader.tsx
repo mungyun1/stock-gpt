@@ -1,4 +1,4 @@
-import React from "react";
+import React, { FC, ReactNode } from "react";
 import {
   View,
   Text,
@@ -24,12 +24,12 @@ export interface AppHeaderProps {
   onClosePress?: () => void;
   onTitlePress?: () => void;
   isRefreshing?: boolean;
-  rightComponent?: React.ReactNode;
+  rightComponent?: ReactNode;
   backgroundColor?: string;
   elevated?: boolean;
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({
+const AppHeader: FC<AppHeaderProps> = ({
   title,
   subtitle,
   showBackButton = false,

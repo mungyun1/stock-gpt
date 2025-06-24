@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Text,
   Pressable,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeColors } from "../theme/colors";
@@ -23,12 +24,13 @@ import { RootStackParamList } from "../types/navigation";
 import Animated, {
   useAnimatedStyle,
   withSpring,
+  useSharedValue,
 } from "react-native-reanimated";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Home">;
 
 interface FeatureButtonProps {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   subtitle: string;
   onPress: () => void;
@@ -38,7 +40,7 @@ interface FeatureButtonProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-const FeatureButton: React.FC<FeatureButtonProps> = ({
+const FeatureButton: FC<FeatureButtonProps> = ({
   icon,
   title,
   subtitle,

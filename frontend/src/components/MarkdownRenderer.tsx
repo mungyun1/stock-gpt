@@ -1,5 +1,5 @@
-import React from "react";
-import { View, StyleSheet } from "react-native";
+import React, { FC, useState, useEffect } from "react";
+import { View, ScrollView, StyleSheet, Dimensions } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { WebView } from "react-native-webview";
 import { useThemeColors } from "../theme/colors";
@@ -8,22 +8,29 @@ interface Props {
   content: string;
 }
 
-const MermaidRenderer: React.FC<{ chart: string }> = ({ chart }) => {
-  const html = `
+const MermaidRenderer: FC<{ chart: string }> = ({ chart }) => {
+  const mermaidHtml = `
     <!DOCTYPE html>
     <html>
       <head>
         <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
         <script>
-          mermaid.initialize({
-            startOnLoad: true,
-            theme: 'default',
-            securityLevel: 'loose',
-          });
+          mermaid.initialize({startOnLoad:true});
         </script>
         <style>
-          body { margin: 0; display: flex; justify-content: center; }
-          .mermaid { width: 100%; }
+          body { 
+            margin: 0; 
+            padding: 10px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+          }
+          .mermaid { 
+            background: white; 
+            border-radius: 8px; 
+            padding: 20px; 
+          }
         </style>
       </head>
       <body>
@@ -34,38 +41,46 @@ const MermaidRenderer: React.FC<{ chart: string }> = ({ chart }) => {
     </html>
   `;
 
-  const handleMermaidMessage = (event: any) => {
-    // Mermaid 렌더링 완료 처리
-  };
+  const screenWidth = Dimensions.get("window").width;
 
   return (
-    <View style={styles.mermaidContainer}>
+    <View style={{ height: 300, marginVertical: 10 }}>
       <WebView
-        source={{ html }}
-        style={styles.webview}
+        originWhitelist={["*"]}
+        source={{ html: mermaidHtml }}
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        scalesPageToFit={false}
         scrollEnabled={false}
-        onMessage={handleMermaidMessage}
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator={false}
       />
     </View>
   );
 };
 
-const MarkdownRenderer: React.FC<Props> = ({ content }) => {
+const MarkdownRenderer: FC<Props> = ({ content }) => {
   const colors = useThemeColors();
-  const [mermaidCharts, setMermaidCharts] = React.useState<string[]>([]);
-  const [processedContent, setProcessedContent] = React.useState(content);
+  const [mermaidCharts, setMermaidCharts] = useState<string[]>([]);
+  const [processedContent, setProcessedContent] = useState(content);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Mermaid 코드 블록 추출
-    const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
+    const mermaidRegex = /```mermaid\n([\s\S]*?)\n```/g;
     const charts: string[] = [];
-    let newContent = content.replace(mermaidRegex, (_, chart) => {
-      charts.push(chart.trim());
-      return `[MERMAID_CHART_${charts.length - 1}]`;
+    let match;
+
+    while ((match = mermaidRegex.exec(content)) !== null) {
+      charts.push(match[1]);
+    }
+
+    // Mermaid 코드 블록을 플레이스홀더로 치환
+    let newContent = content;
+    charts.forEach((chart, index) => {
+      newContent = newContent.replace(mermaidRegex, `[MERMAID_CHART_${index}]`);
     });
 
-    // 테이블 형식 전처리
-    const tableRegex = /\|(.*)\|\n\|[-:\s|]*\|\n((?:\|.*\|\n)*)/g;
+    // 테이블 처리
+    const tableRegex = /\|([^|\n]*\|)+/g;
     newContent = newContent.replace(tableRegex, (match) => {
       // 줄바꿈을 기준으로 행을 분리
       const rows = match.split("\n").filter((row) => row.trim());

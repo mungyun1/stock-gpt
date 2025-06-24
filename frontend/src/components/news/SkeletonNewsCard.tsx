@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Animated, StyleSheet } from "react-native";
 import { useThemeColors } from "../../theme/colors";
 
@@ -9,7 +9,7 @@ interface SkeletonNewsCardProps {
 export const SkeletonNewsCard = ({ colors }: SkeletonNewsCardProps) => {
   const animatedValue = new Animated.Value(0);
 
-  React.useEffect(() => {
+  useEffect(() => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(animatedValue, {

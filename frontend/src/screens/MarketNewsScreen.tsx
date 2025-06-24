@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -54,7 +54,7 @@ const MarketNewsScreen = () => {
     fetchNextPage,
   });
 
-  const allNews = React.useMemo(() => {
+  const allNews = useMemo(() => {
     const newsItems =
       (data as InfiniteData<NewsResponse>)?.pages.flatMap(
         (page) => page.items

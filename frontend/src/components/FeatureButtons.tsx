@@ -1,4 +1,4 @@
-import React from "react";
+import React, { FC } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -8,11 +8,17 @@ import {
   FontAwesome5,
 } from "@expo/vector-icons";
 import { useThemeColors } from "../theme/colors";
-import { RootStackParamList } from "../types/navigation";
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Home">;
+type RootStackParamList = {
+  Chat: undefined;
+  Calendar: undefined;
+  MarketNews: undefined;
+  StockRecommendation: undefined;
+};
 
-const FeatureButtons: React.FC = () => {
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+const FeatureButtons: FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const colors = useThemeColors();
 

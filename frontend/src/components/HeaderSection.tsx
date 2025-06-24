@@ -1,4 +1,4 @@
-import React from "react";
+import React, { FC } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
 import { useThemeColors } from "../theme/colors";
 
@@ -6,7 +6,7 @@ interface HeaderSectionProps {
   marginTop?: number;
 }
 
-const HeaderSection: React.FC<HeaderSectionProps> = ({ marginTop = 48 }) => {
+const HeaderSection: FC<HeaderSectionProps> = ({ marginTop = 48 }) => {
   const colors = useThemeColors();
 
   return (
