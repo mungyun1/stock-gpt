@@ -3,5 +3,6 @@ export type RootStackParamList = {
   Chat: undefined;
   Calendar: undefined;
   MarketNews: undefined;
-  StockRecommendation: undefined;
+  StockCategory: undefined;
+  StockList: { categoryId: string; categoryName: string };
 };

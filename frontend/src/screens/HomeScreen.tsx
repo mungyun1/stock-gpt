@@ -167,7 +167,7 @@ const HomeScreen = () => {
                 }
                 title="주식 추천"
                 subtitle="TOP5 종목"
-                onPress={() => navigation.navigate("StockRecommendation")}
+                onPress={() => navigation.navigate("StockCategory")}
                 iconBgColor="#F3E5F5"
               />
             </View>

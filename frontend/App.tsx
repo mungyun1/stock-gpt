@@ -4,7 +4,8 @@ import HomeScreen from "./src/screens/HomeScreen";
 import ChatScreen from "./src/screens/ChatScreen";
 import CalendarScreen from "./src/screens/CalendarScreen";
 import MarketNewsScreen from "./src/screens/MarketNewsScreen";
-import StockRecommendationScreen from "./src/screens/StockRecommendationScreen";
+import StockCategoryScreen from "./src/screens/StockRecommendationScreen";
+import StockListScreen from "./src/screens/StockListScreen";
 import {
   useFonts,
   Inter_400Regular,
@@ -66,10 +67,8 @@ export default function App() {
           <Stack.Screen name="Chat" component={ChatScreen} />
           <Stack.Screen name="Calendar" component={CalendarScreen} />
           <Stack.Screen name="MarketNews" component={MarketNewsScreen} />
-          <Stack.Screen
-            name="StockRecommendation"
-            component={StockRecommendationScreen}
-          />
+          <Stack.Screen name="StockCategory" component={StockCategoryScreen} />
+          <Stack.Screen name="StockList" component={StockListScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </QueryClientProvider>

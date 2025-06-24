@@ -13,7 +13,7 @@ type RootStackParamList = {
   Chat: undefined;
   Calendar: undefined;
   MarketNews: undefined;
-  StockRecommendation: undefined;
+  StockCategory: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -82,7 +82,7 @@ const FeatureButtons: FC = () => {
             styles.secondaryButton,
             { backgroundColor: colors.background },
           ]}
-          onPress={() => navigation.navigate("StockRecommendation")}
+          onPress={() => navigation.navigate("StockCategory")}
         >
           <View style={[styles.iconContainer, { backgroundColor: "#E8F5E8" }]}>
             <MaterialCommunityIcons
