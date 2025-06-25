@@ -11,7 +11,6 @@ import {
   EventCard,
   EmptyEvents,
 } from "../components/calendar";
-import AppHeader from "../components/AppHeader";
 
 const CalendarScreen = () => {
   const navigation = useNavigation();
@@ -34,15 +33,9 @@ const CalendarScreen = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader
-        title="투자 일정"
-        showBackButton={true}
-        onBackPress={() => navigation.goBack()}
-        backgroundColor={colors.cardBackground}
-        elevated={true}
-      />
-
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <View style={styles.mainContent}>
         <View style={styles.navigationWrapper}>
           <MonthNavigation
@@ -66,7 +59,7 @@ const CalendarScreen = () => {
           )}
         </ScrollView>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

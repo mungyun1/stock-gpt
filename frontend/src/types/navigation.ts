@@ -1,8 +1,12 @@
-export type RootStackParamList = {
-  Home: undefined;
+export type RootTabParamList = {
   Chat: undefined;
-  Calendar: undefined;
   MarketNews: undefined;
+  Calendar: undefined;
+  StockStack: undefined;
+  Home: undefined;
+};
+
+export type RootStackParamList = {
   StockCategory: undefined;
   StockList: { categoryId: string; categoryName: string };
 };

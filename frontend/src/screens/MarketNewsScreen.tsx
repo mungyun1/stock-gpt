@@ -23,7 +23,6 @@ import {
   SkeletonNewsCard,
   ErrorView,
 } from "../components/news";
-import AppHeader from "../components/AppHeader";
 
 type NewsResponse = {
   items: NewsItem[];
@@ -100,16 +99,9 @@ const MarketNewsScreen = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: "#ffffff" }]}>
-      <AppHeader
-        title="시장 동향"
-        showBackButton={true}
-        showRefreshButton={true}
-        onBackPress={() => navigation.goBack()}
-        onRefreshPress={onRefresh}
-        isRefreshing={isFetching}
-      />
-
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <CategorySelector
         selectedCategory={selectedCategory}
         onCategoryChange={setSelectedCategory}
@@ -149,7 +141,7 @@ const MarketNewsScreen = () => {
           </>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 

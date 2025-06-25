@@ -17,17 +17,17 @@ import {
   FontAwesome5,
 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import HeaderSection from "../components/HeaderSection";
 import FeaturesModal from "../components/FeaturesModal";
-import { RootStackParamList } from "../types/navigation";
+import { RootTabParamList } from "../types/navigation";
 import Animated, {
   useAnimatedStyle,
   withSpring,
   useSharedValue,
 } from "react-native-reanimated";
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, "Home">;
+type NavigationProp = BottomTabNavigationProp<RootTabParamList, "Home">;
 
 interface FeatureButtonProps {
   icon: ReactNode;
@@ -173,7 +173,7 @@ const HomeScreen = () => {
                   }
                   title="주식 추천"
                   subtitle="TOP5 종목"
-                  onPress={() => navigation.navigate("StockCategory")}
+                  onPress={() => navigation.navigate("StockStack")}
                   iconBgColor="#F3E5F5"
                 />
               </View>

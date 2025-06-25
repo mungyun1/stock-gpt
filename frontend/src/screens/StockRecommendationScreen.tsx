@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -14,7 +15,6 @@ import { mockStockCategories } from "../data/mockStockData";
 import { StockCategory } from "../types/stock";
 import { RootStackParamList } from "../types/navigation";
 import { useThemeColors } from "../theme/colors";
-import AppHeader from "../components/AppHeader";
 
 type NavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -67,15 +67,9 @@ const StockCategoryScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader
-        title="주식 추천"
-        showBackButton={true}
-        onBackPress={() => navigation.goBack()}
-        backgroundColor={colors.cardBackground}
-        elevated={true}
-      />
-
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <View style={styles.content}>
         <ScrollView
           style={styles.content}
@@ -109,7 +103,7 @@ const StockCategoryScreen: React.FC = () => {
           </View>
         </ScrollView>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -15,7 +16,6 @@ import { mockStockCategories } from "../data/mockStockData";
 import { StockRecommendation } from "../types/stock";
 import { RootStackParamList } from "../types/navigation";
 import { useThemeColors } from "../theme/colors";
-import AppHeader from "../components/AppHeader";
 
 type NavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -382,15 +382,9 @@ const StockListScreen: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader
-        title={categoryName}
-        showBackButton={true}
-        onBackPress={() => navigation.goBack()}
-        backgroundColor={colors.cardBackground}
-        elevated={true}
-      />
-
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <View style={styles.content}>
         <ScrollView
           style={styles.content}
@@ -456,7 +450,7 @@ const StockListScreen: React.FC = () => {
           </View>
         </ScrollView>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

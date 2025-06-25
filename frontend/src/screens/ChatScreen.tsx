@@ -23,16 +23,19 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useThemeColors } from "../theme/colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Markdown from "react-native-markdown-display";
-import AppHeader from "../components/AppHeader";
+
 import { Message } from "../types/chat";
 import ChatGPTResponse from "../components/ChatGPTResponse";
 
-type RootStackParamList = {
-  Home: undefined;
+type RootTabParamList = {
   Chat: undefined;
+  MarketNews: undefined;
+  Calendar: undefined;
+  StockList: undefined;
+  Home: undefined;
 };
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type NavigationProp = NativeStackNavigationProp<RootTabParamList>;
 
 type MessageLink = {
   text: string;
@@ -984,16 +987,6 @@ const ChatScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <AppHeader
-        title="Stock GPT"
-        showMenuButton={true}
-        showHomeButton={true}
-        onMenuPress={toggleSidebar}
-        onHomePress={() => navigation.goBack()}
-        onTitlePress={() => navigation.goBack()}
-        backgroundColor={colors.cardBackground}
-        elevated={true}
-      />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={[styles.container, { backgroundColor: colors.background }]}
@@ -1187,14 +1180,11 @@ const ChatScreen = () => {
               disabled={!input.trim() || isTyping}
             >
               <Ionicons
-                name={isTyping ? "time-outline" : "send"}
-                size={16}
+                name={isTyping ? "time-outline" : "arrow-forward"}
+                size={14}
                 color={
                   input.trim() && !isTyping ? "#FFFFFF" : colors.textSecondary
                 }
-                style={{
-                  transform: [{ rotate: isTyping ? "0deg" : "-90deg" }],
-                }}
               />
             </TouchableOpacity>
           </Pressable>
@@ -1609,16 +1599,16 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     borderTopWidth: 1,
-    padding: 16,
+    padding: 12,
     width: "100%",
     zIndex: 1,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: {
@@ -1631,21 +1621,21 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: "Inter_400Regular",
     paddingTop: 0,
     paddingBottom: 0,
-    minHeight: 20,
-    maxHeight: 120,
-    lineHeight: 20,
+    minHeight: 18,
+    maxHeight: 100,
+    lineHeight: 18,
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
+    marginLeft: 6,
   },
   typingContainer: {
     flexDirection: "row",
