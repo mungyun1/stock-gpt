@@ -33,30 +33,42 @@ const MonthNavigation: React.FC<MonthNavigationProps> = ({
         style={[
           styles.monthButton,
           {
-            backgroundColor: colors.background,
-            opacity: canGoPrev ? 1 : 0.5,
+            backgroundColor: "transparent",
           },
         ]}
         onPress={onPrevMonth}
         disabled={!canGoPrev}
+        activeOpacity={0.7}
       >
-        <Ionicons name="chevron-back" size={20} color={colors.textPrimary} />
+        <Ionicons
+          name="chevron-back"
+          size={22}
+          color={canGoPrev ? colors.accent : colors.textSecondary}
+        />
       </TouchableOpacity>
-      <Text style={[styles.monthText, { color: colors.textPrimary }]}>
-        {format(currentMonth, "yyyy년 M월", { locale: ko })}
-      </Text>
+
+      <View style={styles.monthTextContainer}>
+        <Text style={[styles.monthText, { color: colors.textPrimary }]}>
+          {format(currentMonth, "yyyy년 M월", { locale: ko })}
+        </Text>
+      </View>
+
       <TouchableOpacity
         style={[
           styles.monthButton,
           {
-            backgroundColor: colors.background,
-            opacity: canGoNext ? 1 : 0.5,
+            backgroundColor: "transparent",
           },
         ]}
         onPress={onNextMonth}
         disabled={!canGoNext}
+        activeOpacity={0.7}
       >
-        <Ionicons name="chevron-forward" size={20} color={colors.textPrimary} />
+        <Ionicons
+          name="chevron-forward"
+          size={22}
+          color={canGoNext ? colors.accent : colors.textSecondary}
+        />
       </TouchableOpacity>
     </View>
   );
@@ -66,36 +78,30 @@ const styles = StyleSheet.create({
   monthNav: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    padding: 12,
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E5E5",
+    borderBottomColor: "#F0F0F0",
   },
   monthButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+  },
+  monthTextContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 20,
   },
   monthText: {
-    fontSize: 17,
+    fontSize: 18,
     fontFamily: "Pretendard-SemiBold",
-    marginHorizontal: 16,
+    fontWeight: "600",
+    letterSpacing: -0.5,
   },
 });
 

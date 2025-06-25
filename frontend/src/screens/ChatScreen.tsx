@@ -15,6 +15,7 @@ import {
   Alert,
   Pressable,
   ListRenderItem,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -155,14 +156,32 @@ const ChatScreen = () => {
     }
   }, [isTyping]);
 
-  // React Navigation 제스처 비활성화
+  // React Navigation 제스처 비활성화 및 사이드바 닫기
   useFocusEffect(
     useCallback(() => {
       navigation.setOptions({
         gestureEnabled: false,
         gestureDirection: "horizontal",
       });
-    }, [navigation])
+
+      // 페이지가 포커스될 때 사이드바 닫기
+      if (isSidebarOpen) {
+        setIsSidebarOpen(false);
+        Animated.parallel([
+          Animated.spring(sidebarAnimation, {
+            toValue: -SIDEBAR_WIDTH,
+            useNativeDriver: true,
+            tension: 65,
+            friction: 11,
+          }),
+          Animated.timing(overlayAnimation, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+    }, [navigation, isSidebarOpen, sidebarAnimation, overlayAnimation])
   );
 
   // 타이핑 애니메이션 컴포넌트
@@ -992,136 +1011,184 @@ const ChatScreen = () => {
         style={[styles.container, { backgroundColor: colors.background }]}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
+        {/* Header */}
+        <SafeAreaView edges={["top"]}>
+          <View
+            style={[
+              styles.header,
+              {
+                backgroundColor: colors.cardBackground,
+                borderBottomColor: colors.border,
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.sidebarToggleButton}
+              onPress={toggleSidebar}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name="menu-outline"
+                size={24}
+                color={colors.textPrimary}
+              />
+            </TouchableOpacity>
+
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+              Stalk
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.newChatHeaderButton,
+                { backgroundColor: `${colors.accent}08` },
+              ]}
+              onPress={createNewThread}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="add" size={20} color={colors.accent} />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+
         {/* Chat Messages */}
-        <ScrollView
-          style={styles.messagesContainer}
-          contentContainerStyle={[
-            styles.messagesContentContainer,
-            { flexGrow: 1 },
-          ]}
-          ref={scrollViewRef}
-          onContentSizeChange={() =>
-            scrollViewRef.current?.scrollToEnd({ animated: true })
-          }
-          keyboardDismissMode="interactive"
-          keyboardShouldPersistTaps="handled"
-        >
-          {messages.length === 0 ? (
-            <View style={styles.welcomeContainer}>
-              <Text
-                style={[styles.welcomeText, { color: colors.textSecondary }]}
-              >
-                어떤 투자 정보를 알고 싶으세요?
-              </Text>
-            </View>
-          ) : (
-            messages.map((msg) => (
-              <View
-                key={msg.id}
-                style={[
-                  styles.messageWrapper,
-                  msg.isUser
-                    ? styles.userMessageWrapper
-                    : styles.aiMessageWrapper,
-                ]}
-              >
+        <View style={styles.messagesWrapper}>
+          {/* Background Logo */}
+          <Image
+            source={require("../../assets/logo.png")}
+            style={styles.backgroundLogo}
+            resizeMode="contain"
+          />
+          <ScrollView
+            style={styles.messagesContainer}
+            contentContainerStyle={[
+              styles.messagesContentContainer,
+              { flexGrow: 1 },
+            ]}
+            ref={scrollViewRef}
+            onContentSizeChange={() =>
+              scrollViewRef.current?.scrollToEnd({ animated: true })
+            }
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+          >
+            {messages.length === 0 ? (
+              <View style={styles.welcomeContainer}></View>
+            ) : (
+              messages.map((msg) => (
                 <View
+                  key={msg.id}
                   style={[
-                    styles.messageContainer,
+                    styles.messageWrapper,
                     msg.isUser
-                      ? [
-                          styles.userMessage,
-                          {
-                            backgroundColor: colors.accent,
-                          },
-                        ]
-                      : [
-                          styles.aiMessage,
-                          {
-                            borderTopWidth: 0.5,
-                            borderBottomWidth: 0.5,
-                            borderColor: `${colors.border}50`,
-                          },
-                        ],
+                      ? styles.userMessageWrapper
+                      : styles.aiMessageWrapper,
                   ]}
                 >
-                  {!msg.isUser && (
-                    <View style={styles.aiMessageHeader}>
-                      <View
-                        style={[
-                          styles.avatarContainer,
-                          { backgroundColor: `${colors.accent}08` },
-                        ]}
-                      >
-                        <Ionicons
-                          name="terminal-outline"
-                          size={14}
-                          color={colors.accent}
-                          style={{ opacity: 0.8 }}
-                        />
-                      </View>
-                      <Text
-                        style={[
-                          styles.aiLabel,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Stock GPT
-                      </Text>
-                    </View>
-                  )}
-                  {msg.id === "typing" ? (
-                    <TypingIndicator />
-                  ) : (
-                    <>
-                      {thinkingMessages.includes(msg.text) ? (
-                        <Animated.Text
-                          style={[
-                            styles.messageText,
+                  <View
+                    style={[
+                      styles.messageContainer,
+                      msg.isUser
+                        ? [
+                            styles.userMessage,
                             {
-                              opacity: messageOpacity,
-                              color: interpolatedColor,
+                              backgroundColor: colors.accent,
                             },
-                          ]}
-                        >
-                          {msg.text}
-                        </Animated.Text>
-                      ) : msg.isUser ? (
-                        <Text
-                          style={[styles.messageText, { color: "#FFFFFF" }]}
-                        >
-                          {msg.text}
-                        </Text>
-                      ) : (
-                        <Markdown
-                          style={markdownStyles}
-                          onLinkPress={(url: string) => {
-                            Linking.openURL(url);
-                            return false;
-                          }}
-                        >
-                          {msg.text}
-                        </Markdown>
-                      )}
-                      {msg.error && (
-                        <TouchableOpacity
+                          ]
+                        : [
+                            styles.aiMessage,
+                            {
+                              borderTopWidth: 0.5,
+                              borderBottomWidth: 0.5,
+                              borderColor: `${colors.border}50`,
+                            },
+                          ],
+                    ]}
+                  >
+                    {!msg.isUser && (
+                      <View style={styles.aiMessageHeader}>
+                        <View
                           style={[
-                            styles.retryButton,
-                            { backgroundColor: colors.accent },
+                            styles.avatarContainer,
+                            { backgroundColor: `${colors.accent}08` },
                           ]}
-                          onPress={() => handleRetry(msg.id)}
                         >
-                          <Ionicons name="refresh" size={16} color="#FFFFFF" />
-                          <Text style={styles.retryButtonText}>다시 시도</Text>
-                        </TouchableOpacity>
-                      )}
-                    </>
-                  )}
+                          <Ionicons
+                            name="terminal-outline"
+                            size={14}
+                            color={colors.accent}
+                            style={{ opacity: 0.8 }}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.aiLabel,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Stock GPT
+                        </Text>
+                      </View>
+                    )}
+                    {msg.id === "typing" ? (
+                      <TypingIndicator />
+                    ) : (
+                      <>
+                        {thinkingMessages.includes(msg.text) ? (
+                          <Animated.Text
+                            style={[
+                              styles.messageText,
+                              {
+                                opacity: messageOpacity,
+                                color: interpolatedColor,
+                              },
+                            ]}
+                          >
+                            {msg.text}
+                          </Animated.Text>
+                        ) : msg.isUser ? (
+                          <Text
+                            style={[styles.messageText, { color: "#FFFFFF" }]}
+                          >
+                            {msg.text}
+                          </Text>
+                        ) : (
+                          <Markdown
+                            style={markdownStyles}
+                            onLinkPress={(url: string) => {
+                              Linking.openURL(url);
+                              return false;
+                            }}
+                          >
+                            {msg.text}
+                          </Markdown>
+                        )}
+                        {msg.error && (
+                          <TouchableOpacity
+                            style={[
+                              styles.retryButton,
+                              { backgroundColor: colors.accent },
+                            ]}
+                            onPress={() => handleRetry(msg.id)}
+                          >
+                            <Ionicons
+                              name="refresh"
+                              size={16}
+                              color="#FFFFFF"
+                            />
+                            <Text style={styles.retryButtonText}>
+                              다시 시도
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </>
+                    )}
+                  </View>
                 </View>
-              </View>
-            ))
-          )}
-        </ScrollView>
+              ))
+            )}
+          </ScrollView>
+        </View>
 
         {/* Input Container */}
         <View
@@ -1152,7 +1219,9 @@ const ChatScreen = () => {
                 },
               ]}
               placeholder={
-                isTyping ? "응답을 기다리는 중..." : "질문을 입력하세요"
+                isTyping
+                  ? "응답을 기다리는 중..."
+                  : "Stalk에게 투자 조언을 받으세요."
               }
               placeholderTextColor={colors.textSecondary}
               value={input}
@@ -1412,6 +1481,21 @@ const ChatScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  messagesWrapper: {
+    flex: 1,
+    position: "relative",
+  },
+  backgroundLogo: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 200,
+    height: 200,
+    marginTop: -100,
+    marginLeft: -100,
+    opacity: 0.08,
+    zIndex: 0,
   },
   overlay: {
     position: "absolute",
@@ -1683,6 +1767,41 @@ const styles = StyleSheet.create({
   editButton: {
     padding: 8,
     opacity: 0.8,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  sidebarToggleButton: {
+    padding: 8,
+    borderRadius: 8,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontFamily: "Pretendard-SemiBold",
+    textAlign: "center",
+    letterSpacing: -0.5,
+  },
+  newChatHeaderButton: {
+    padding: 8,
+    borderRadius: 12,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 

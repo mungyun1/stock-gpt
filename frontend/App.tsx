@@ -8,7 +8,7 @@ import MarketNewsScreen from "./src/screens/MarketNewsScreen";
 import StockCategoryScreen from "./src/screens/StockRecommendationScreen";
 import StockListScreen from "./src/screens/StockListScreen";
 import { Ionicons } from "@expo/vector-icons";
-import { useFonts } from "expo-font";
+// import { useFonts } from "expo-font";
 import { View, ActivityIndicator, I18nManager, Platform } from "react-native";
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -121,16 +121,17 @@ function TabNavigator() {
 }
 
 export default function App() {
-  let [fontsLoaded] = useFonts({
-    "Pretendard-Regular":
-      "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Regular.woff2",
-    "Pretendard-Medium":
-      "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Medium.woff2",
-    "Pretendard-SemiBold":
-      "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-SemiBold.woff2",
-    "Pretendard-Bold":
-      "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Bold.woff2",
-  });
+  // 폰트 로딩을 임시로 비활성화하여 문제 해결
+  // let [fontsLoaded, fontsError] = useFonts({
+  //   "Pretendard-Regular":
+  //     "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Regular.woff2",
+  //   "Pretendard-Medium":
+  //     "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Medium.woff2",
+  //   "Pretendard-SemiBold":
+  //     "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-SemiBold.woff2",
+  //   "Pretendard-Bold":
+  //     "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Bold.woff2",
+  // });
 
   useEffect(() => {
     if (Platform.OS === "ios") {
@@ -139,20 +140,21 @@ export default function App() {
     }
   }, []);
 
-  if (!fontsLoaded) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#202123",
-        }}
-      >
-        <ActivityIndicator size="large" color="#FFFFFF" />
-      </View>
-    );
-  }
+  // 폰트 로딩을 건너뛰고 바로 앱 시작
+  // if (!fontsLoaded) {
+  //   return (
+  //     <View
+  //       style={{
+  //         flex: 1,
+  //         justifyContent: "center",
+  //         alignItems: "center",
+  //         backgroundColor: "#202123",
+  //       }}
+  //     >
+  //       <ActivityIndicator size="large" color="#FFFFFF" />
+  //     </View>
+  //   );
+  // }
 
   return (
     <QueryClientProvider client={queryClient}>
