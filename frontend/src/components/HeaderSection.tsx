@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   },
   mainTagline: {
     fontSize: 28,
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Pretendard-Bold",
     marginBottom: 8,
     textAlign: "center",
     letterSpacing: -1,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 17,
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Pretendard-Medium",
     opacity: 0.75,
     marginBottom: 24,
     textAlign: "center",
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
   },
 });
 

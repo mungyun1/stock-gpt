@@ -54,7 +54,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 20,
-    marginHorizontal: 16,
     marginBottom: 1,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
@@ -72,7 +71,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     lineHeight: 22,
     marginBottom: 8,
     color: "#1a1a1a",
@@ -90,7 +89,7 @@ const styles = StyleSheet.create({
   },
   source: {
     fontSize: 13,
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Pretendard-Medium",
     color: "#666666",
   },
   dot: {
@@ -100,7 +99,7 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
     color: "#888888",
   },
   commentContainer: {

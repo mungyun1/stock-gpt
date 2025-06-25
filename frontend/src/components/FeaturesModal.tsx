@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 24,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
   },
   modalScroll: {
     flexGrow: 1,

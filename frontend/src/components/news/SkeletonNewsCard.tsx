@@ -76,6 +76,13 @@ export const SkeletonNewsCard = ({ colors }: SkeletonNewsCardProps) => {
             />
             <Animated.View
               style={[
+                styles.skeletonDot,
+                styles.skeleton,
+                { opacity, backgroundColor: colors.border },
+              ]}
+            />
+            <Animated.View
+              style={[
                 styles.skeletonTime,
                 styles.skeleton,
                 { opacity, backgroundColor: colors.border },
@@ -93,7 +100,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 20,
-    marginHorizontal: 16,
     marginBottom: 1,
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
@@ -120,27 +126,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
-    gap: 8,
   },
   skeleton: {
     borderRadius: 4,
   },
   skeletonTitle: {
-    height: 16,
+    height: 22,
     width: "90%",
-    marginBottom: 6,
+    marginBottom: 2,
   },
   skeletonTitleSecond: {
-    height: 16,
+    height: 22,
     width: "70%",
     marginBottom: 8,
   },
   skeletonSource: {
-    height: 12,
+    height: 13,
     width: 60,
   },
+  skeletonDot: {
+    height: 13,
+    width: 4,
+    marginHorizontal: 6,
+  },
   skeletonTime: {
-    height: 12,
+    height: 13,
     width: 50,
   },
 });

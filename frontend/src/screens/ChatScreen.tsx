@@ -886,26 +886,26 @@ const ChatScreen = () => {
     body: {
       color: colors.textPrimary,
       fontSize: 15,
-      fontFamily: "Inter_400Regular",
+      fontFamily: "Pretendard-Regular",
       lineHeight: 24,
     },
     heading1: {
       fontSize: 24,
-      fontFamily: "Inter_700Bold",
+      fontFamily: "Pretendard-Bold",
       marginVertical: 16,
       color: colors.textPrimary,
       letterSpacing: -0.5,
     },
     heading2: {
       fontSize: 20,
-      fontFamily: "Inter_600SemiBold",
+      fontFamily: "Pretendard-SemiBold",
       marginVertical: 12,
       color: colors.textPrimary,
       letterSpacing: -0.5,
     },
     heading3: {
       fontSize: 18,
-      fontFamily: "Inter_600SemiBold",
+      fontFamily: "Pretendard-SemiBold",
       marginVertical: 10,
       color: colors.textPrimary,
       letterSpacing: -0.3,
@@ -964,7 +964,7 @@ const ChatScreen = () => {
       justifyContent: "center" as const,
     },
     strong: {
-      fontFamily: "Inter_600SemiBold",
+      fontFamily: "Pretendard-SemiBold",
       color: colors.accent,
     },
     em: {
@@ -1453,7 +1453,7 @@ const styles = StyleSheet.create({
   },
   sidebarTitle: {
     fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     letterSpacing: -0.3,
     opacity: 0.9,
   },
@@ -1494,13 +1494,13 @@ const styles = StyleSheet.create({
   },
   threadTitle: {
     fontSize: 15,
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Pretendard-Medium",
     letterSpacing: -0.3,
     marginBottom: 2,
   },
   threadLastMessage: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
     opacity: 0.7,
   },
   deleteButton: {
@@ -1521,7 +1521,7 @@ const styles = StyleSheet.create({
   },
   newChatButtonText: {
     fontSize: 15,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     letterSpacing: -0.3,
   },
 
@@ -1540,7 +1540,7 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 18,
     textAlign: "center",
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
     lineHeight: 28,
     opacity: 0.8,
   },
@@ -1572,7 +1572,7 @@ const styles = StyleSheet.create({
   },
   aiLabel: {
     fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     opacity: 0.5,
     letterSpacing: -0.3,
   },
@@ -1592,7 +1592,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
     lineHeight: 24,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 0.5,
@@ -1622,7 +1622,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
     paddingTop: 0,
     paddingBottom: 0,
     minHeight: 18,

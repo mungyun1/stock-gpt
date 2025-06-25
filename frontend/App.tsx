@@ -8,12 +8,7 @@ import MarketNewsScreen from "./src/screens/MarketNewsScreen";
 import StockCategoryScreen from "./src/screens/StockRecommendationScreen";
 import StockListScreen from "./src/screens/StockListScreen";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  useFonts,
-  Inter_400Regular,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from "@expo-google-fonts/inter";
+import { useFonts } from "expo-font";
 import { View, ActivityIndicator, I18nManager, Platform } from "react-native";
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -63,7 +58,7 @@ function TabNavigator() {
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: {
           fontSize: 12,
-          fontFamily: "Inter_600SemiBold",
+          fontFamily: "Pretendard-SemiBold",
           marginTop: 4,
         },
         tabBarIconStyle: {
@@ -127,9 +122,14 @@ function TabNavigator() {
 
 export default function App() {
   let [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    "Pretendard-Regular":
+      "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Regular.woff2",
+    "Pretendard-Medium":
+      "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Medium.woff2",
+    "Pretendard-SemiBold":
+      "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-SemiBold.woff2",
+    "Pretendard-Bold":
+      "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Bold.woff2",
   });
 
   useEffect(() => {

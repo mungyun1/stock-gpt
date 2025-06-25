@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
     marginBottom: 16,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
   },
   retryButton: {
     paddingHorizontal: 20,
@@ -47,6 +47,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
   },
 });

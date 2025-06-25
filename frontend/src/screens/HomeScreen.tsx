@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   },
   buttonTitle: {
     fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     marginBottom: 6,
     textAlign: "center",
     lineHeight: 22,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   },
   buttonSubtitle: {
     fontSize: 12,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
     color: "#999999",
     textAlign: "center",
     lineHeight: 18,

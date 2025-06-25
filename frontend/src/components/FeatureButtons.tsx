@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     color: "white",
   },
   secondaryButtonsRow: {
@@ -169,12 +169,12 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     marginBottom: 2,
   },
   buttonSubtext: {
     fontSize: 11,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
     color: "#999999",
     textAlign: "center",
   },

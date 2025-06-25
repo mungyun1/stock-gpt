@@ -19,7 +19,6 @@ interface CategorySelectorProps {
 export const CategorySelector = ({
   selectedCategory,
   onCategoryChange,
-  colors,
 }: CategorySelectorProps) => {
   return (
     <View style={styles.container}>
@@ -83,12 +82,12 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     color: "#666666",
     textAlign: "center",
   },
   categoryTextActive: {
     color: "#0B4619",
-    fontFamily: "Inter_700Bold",
+    fontFamily: "Pretendard-Bold",
   },
 });

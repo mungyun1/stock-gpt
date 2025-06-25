@@ -69,17 +69,17 @@ const styles = StyleSheet.create({
   },
   eventDate: {
     fontSize: 14,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
     marginBottom: 4,
   },
   eventTitle: {
     fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     marginBottom: 8,
   },
   eventDescription: {
     fontSize: 14,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
     lineHeight: 20,
   },
 });

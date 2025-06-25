@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
   },
   moreButtonText: {
     fontSize: 16,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
   },
 });
 

@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   },
   monthText: {
     fontSize: 17,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     marginHorizontal: 16,
   },
 });

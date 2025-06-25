@@ -71,12 +71,12 @@ const styles = StyleSheet.create({
   },
   featureTitle: {
     fontSize: 18,
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Pretendard-SemiBold",
     flex: 1,
   },
   featureDescription: {
     fontSize: 15,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Pretendard-Regular",
     lineHeight: 22,
     opacity: 0.8,
   },
