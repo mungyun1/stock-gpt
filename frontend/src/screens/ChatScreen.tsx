@@ -156,32 +156,14 @@ const ChatScreen = () => {
     }
   }, [isTyping]);
 
-  // React Navigation 제스처 비활성화 및 사이드바 닫기
+  // React Navigation 제스처 비활성화
   useFocusEffect(
     useCallback(() => {
       navigation.setOptions({
         gestureEnabled: false,
         gestureDirection: "horizontal",
       });
-
-      // 페이지가 포커스될 때 사이드바 닫기
-      if (isSidebarOpen) {
-        setIsSidebarOpen(false);
-        Animated.parallel([
-          Animated.spring(sidebarAnimation, {
-            toValue: -SIDEBAR_WIDTH,
-            useNativeDriver: true,
-            tension: 65,
-            friction: 11,
-          }),
-          Animated.timing(overlayAnimation, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }
-    }, [navigation, isSidebarOpen, sidebarAnimation, overlayAnimation])
+    }, [navigation])
   );
 
   // 타이핑 애니메이션 컴포넌트
@@ -420,8 +402,12 @@ const ChatScreen = () => {
 
   const toggleSidebar = () => {
     Keyboard.dismiss();
-    const toValue = isSidebarOpen ? -SIDEBAR_WIDTH : 0;
-    const overlayToValue = isSidebarOpen ? 0 : 0.5;
+    const newSidebarState = !isSidebarOpen;
+    const toValue = newSidebarState ? 0 : -SIDEBAR_WIDTH;
+    const overlayToValue = newSidebarState ? 0.5 : 0;
+
+    // 상태를 먼저 업데이트
+    setIsSidebarOpen(newSidebarState);
 
     Animated.parallel([
       Animated.spring(sidebarAnimation, {
@@ -435,9 +421,7 @@ const ChatScreen = () => {
         duration: 200,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      setIsSidebarOpen(!isSidebarOpen);
-    });
+    ]).start();
   };
 
   const handleRetry = async (failedMessageId: string) => {
@@ -1294,192 +1278,197 @@ const ChatScreen = () => {
             },
           ]}
         >
-          <View style={styles.sidebarContent}>
-            <View
-              style={[
-                styles.sidebarHeader,
-                {
-                  backgroundColor: colors.background,
-                  borderBottomColor: colors.border,
-                },
-              ]}
-            >
-              <View style={styles.headerContent}>
-                <Text
-                  style={[styles.sidebarTitle, { color: colors.textPrimary }]}
-                >
-                  대화 목록 ({threads.length})
-                </Text>
-                <TouchableOpacity
-                  style={styles.closeButton}
-                  onPress={toggleSidebar}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons
-                    name="close"
-                    size={20}
-                    color={colors.textSecondary}
-                    style={{ opacity: 0.6 }}
-                  />
-                </TouchableOpacity>
+          <SafeAreaView
+            edges={["top"]}
+            style={{ flex: 1, backgroundColor: colors.background }}
+          >
+            <View style={styles.sidebarContent}>
+              <View
+                style={[
+                  styles.sidebarHeader,
+                  {
+                    backgroundColor: colors.background,
+                    borderBottomColor: colors.border,
+                  },
+                ]}
+              >
+                <View style={styles.headerContent}>
+                  <Text
+                    style={[styles.sidebarTitle, { color: colors.textPrimary }]}
+                  >
+                    대화 목록 ({threads.length})
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={toggleSidebar}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={20}
+                      color={colors.textSecondary}
+                      style={{ opacity: 0.6 }}
+                    />
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-            <ScrollView
-              style={[
-                styles.threadList,
-                { backgroundColor: colors.cardBackground },
-              ]}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.threadListContent}
-            >
-              {threads.map((thread) => (
-                <TouchableOpacity
-                  key={thread.id}
-                  style={[
-                    styles.threadItem,
-                    {
-                      borderBottomColor: colors.border,
-                      backgroundColor:
-                        thread.id === threadId
-                          ? `${colors.accent}08`
-                          : "transparent",
-                    },
-                  ]}
-                  onPress={() => handleThreadSelect(thread)}
-                >
-                  <View style={styles.threadItemInner}>
-                    <View
-                      style={[
-                        styles.threadIconContainer,
-                        {
-                          backgroundColor:
-                            thread.id === threadId
-                              ? `${colors.accent}15`
-                              : `${colors.accent}08`,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name="chatbubble-ellipses-outline"
-                        size={15}
-                        color={colors.accent}
-                        style={{
-                          opacity: thread.id === threadId ? 1 : 0.8,
-                        }}
-                      />
-                    </View>
-                    <View style={styles.threadTextContainer}>
-                      {editingThreadId === thread.id ? (
-                        <TextInput
-                          ref={titleInputRef}
-                          style={[
-                            styles.threadTitleInput,
-                            {
-                              color: colors.textPrimary,
-                              borderColor: colors.accent,
-                            },
-                          ]}
-                          value={editingTitle}
-                          onChangeText={setEditingTitle}
-                          onBlur={() =>
-                            saveThreadTitle(thread.id, editingTitle)
-                          }
-                          onSubmitEditing={() =>
-                            saveThreadTitle(thread.id, editingTitle)
-                          }
-                          onKeyPress={({ nativeEvent }) => {
-                            if (nativeEvent.key === "Escape") {
-                              cancelEditingTitle();
-                            }
+              <ScrollView
+                style={[
+                  styles.threadList,
+                  { backgroundColor: colors.cardBackground },
+                ]}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.threadListContent}
+              >
+                {threads.map((thread) => (
+                  <TouchableOpacity
+                    key={thread.id}
+                    style={[
+                      styles.threadItem,
+                      {
+                        borderBottomColor: colors.border,
+                        backgroundColor:
+                          thread.id === threadId
+                            ? `${colors.accent}08`
+                            : "transparent",
+                      },
+                    ]}
+                    onPress={() => handleThreadSelect(thread)}
+                  >
+                    <View style={styles.threadItemInner}>
+                      <View
+                        style={[
+                          styles.threadIconContainer,
+                          {
+                            backgroundColor:
+                              thread.id === threadId
+                                ? `${colors.accent}15`
+                                : `${colors.accent}08`,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name="chatbubble-ellipses-outline"
+                          size={15}
+                          color={colors.accent}
+                          style={{
+                            opacity: thread.id === threadId ? 1 : 0.8,
                           }}
-                          autoFocus
-                          selectTextOnFocus
-                          maxLength={30}
-                          placeholder="제목을 입력하세요"
-                          placeholderTextColor={colors.textSecondary}
                         />
-                      ) : (
-                        <Text
-                          style={[
-                            styles.threadTitle,
-                            {
-                              color: colors.textPrimary,
-                              opacity: thread.id === threadId ? 1 : 0.9,
-                            },
-                          ]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {thread.title || "새로운 대화"}
-                        </Text>
-                      )}
-                      {thread.last_message && (
-                        <Text
-                          style={[
-                            styles.threadLastMessage,
-                            {
-                              color: colors.textSecondary,
-                              opacity: thread.id === threadId ? 0.8 : 0.6,
-                            },
-                          ]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {thread.last_message}
-                        </Text>
-                      )}
+                      </View>
+                      <View style={styles.threadTextContainer}>
+                        {editingThreadId === thread.id ? (
+                          <TextInput
+                            ref={titleInputRef}
+                            style={[
+                              styles.threadTitleInput,
+                              {
+                                color: colors.textPrimary,
+                                borderColor: colors.accent,
+                              },
+                            ]}
+                            value={editingTitle}
+                            onChangeText={setEditingTitle}
+                            onBlur={() =>
+                              saveThreadTitle(thread.id, editingTitle)
+                            }
+                            onSubmitEditing={() =>
+                              saveThreadTitle(thread.id, editingTitle)
+                            }
+                            onKeyPress={({ nativeEvent }) => {
+                              if (nativeEvent.key === "Escape") {
+                                cancelEditingTitle();
+                              }
+                            }}
+                            autoFocus
+                            selectTextOnFocus
+                            maxLength={30}
+                            placeholder="제목을 입력하세요"
+                            placeholderTextColor={colors.textSecondary}
+                          />
+                        ) : (
+                          <Text
+                            style={[
+                              styles.threadTitle,
+                              {
+                                color: colors.textPrimary,
+                                opacity: thread.id === threadId ? 1 : 0.9,
+                              },
+                            ]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {thread.title || "새로운 대화"}
+                          </Text>
+                        )}
+                        {thread.last_message && (
+                          <Text
+                            style={[
+                              styles.threadLastMessage,
+                              {
+                                color: colors.textSecondary,
+                                opacity: thread.id === threadId ? 0.8 : 0.6,
+                              },
+                            ]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {thread.last_message}
+                          </Text>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                  <View style={styles.threadActions}>
-                    {editingThreadId !== thread.id && (
+                    <View style={styles.threadActions}>
+                      {editingThreadId !== thread.id && (
+                        <TouchableOpacity
+                          style={styles.editButton}
+                          onPress={() => startEditingTitle(thread)}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Ionicons
+                            name="create-outline"
+                            size={16}
+                            color={colors.accent}
+                            style={{ opacity: 0.7 }}
+                          />
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => startEditingTitle(thread)}
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteThread(thread.id)}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
                         <Ionicons
-                          name="create-outline"
-                          size={16}
-                          color={colors.accent}
-                          style={{ opacity: 0.7 }}
+                          name="trash-outline"
+                          size={15}
+                          color={colors.textSecondary}
+                          style={{ opacity: 0.4 }}
                         />
                       </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDeleteThread(thread.id)}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <Ionicons
-                        name="trash-outline"
-                        size={15}
-                        color={colors.textSecondary}
-                        style={{ opacity: 0.4 }}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              style={[
-                styles.newChatButton,
-                {
-                  backgroundColor: `${colors.accent}08`,
-                },
-              ]}
-              onPress={createNewThread}
-            >
-              <View style={styles.newChatButtonContent}>
-                <Ionicons name="add-circle" size={17} color={colors.accent} />
-                <Text
-                  style={[styles.newChatButtonText, { color: colors.accent }]}
-                >
-                  새로운 대화
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity
+                style={[
+                  styles.newChatButton,
+                  {
+                    backgroundColor: `${colors.accent}08`,
+                  },
+                ]}
+                onPress={createNewThread}
+              >
+                <View style={styles.newChatButtonContent}>
+                  <Ionicons name="add-circle" size={17} color={colors.accent} />
+                  <Text
+                    style={[styles.newChatButtonText, { color: colors.accent }]}
+                  >
+                    새로운 대화
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
         </Animated.View>
       </KeyboardAvoidingView>
     </View>
@@ -1537,6 +1526,14 @@ const styles = StyleSheet.create({
     height: 68,
     borderBottomWidth: 0.5,
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   headerContent: {
     flexDirection: "row",
@@ -1781,7 +1778,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
+    height: 68,
     borderBottomWidth: 0.5,
     shadowColor: "#000",
     shadowOffset: {
