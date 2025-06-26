@@ -11,6 +11,7 @@ import {
   EventCard,
   EmptyEvents,
 } from "../components/calendar";
+import CommonHeader from "../components/CommonHeader";
 
 const CalendarScreen = () => {
   const navigation = useNavigation();
@@ -33,38 +34,49 @@ const CalendarScreen = () => {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
-      <View style={styles.mainContent}>
-        <View style={styles.navigationWrapper}>
-          <MonthNavigation
-            currentMonth={currentMonth}
-            onPrevMonth={handlePrevMonth}
-            onNextMonth={handleNextMonth}
-          />
-        </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <CommonHeader title="캘린더" />
+      <SafeAreaView
+        style={[styles.content, { backgroundColor: colors.background }]}
+        edges={["bottom", "left", "right"]}
+      >
+        <View style={styles.mainContent}>
+          <View style={styles.navigationWrapper}>
+            <MonthNavigation
+              currentMonth={currentMonth}
+              onPrevMonth={handlePrevMonth}
+              onNextMonth={handleNextMonth}
+            />
+          </View>
 
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {filteredEvents.length === 0 ? (
-            <EmptyEvents />
-          ) : (
-            filteredEvents.map((event, index) => (
-              <EventCard key={index} event={event} onPress={handleEventPress} />
-            ))
-          )}
-        </ScrollView>
-      </View>
-    </SafeAreaView>
+          <ScrollView
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {filteredEvents.length === 0 ? (
+              <EmptyEvents />
+            ) : (
+              filteredEvents.map((event, index) => (
+                <EventCard
+                  key={index}
+                  event={event}
+                  onPress={handleEventPress}
+                />
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  content: {
     flex: 1,
   },
   mainContent: {

@@ -15,6 +15,7 @@ import { mockStockCategories } from "../data/mockStockData";
 import { StockCategory } from "../types/stock";
 import { RootStackParamList } from "../types/navigation";
 import { useThemeColors } from "../theme/colors";
+import CommonHeader from "../components/CommonHeader";
 
 type NavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -67,12 +68,14 @@ const StockCategoryScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
-      <View style={styles.content}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <CommonHeader title="종목 추천" />
+      <SafeAreaView
+        style={[styles.content, { backgroundColor: colors.background }]}
+        edges={["bottom", "left", "right"]}
+      >
         <ScrollView
-          style={styles.content}
+          style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
@@ -102,8 +105,8 @@ const StockCategoryScreen: React.FC = () => {
             </View>
           </View>
         </ScrollView>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 };
 
@@ -112,6 +115,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
+    flex: 1,
+  },
+  scrollView: {
     flex: 1,
   },
   categoriesContainer: {

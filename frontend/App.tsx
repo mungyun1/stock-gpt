@@ -121,40 +121,12 @@ function TabNavigator() {
 }
 
 export default function App() {
-  // 폰트 로딩을 임시로 비활성화하여 문제 해결
-  // let [fontsLoaded, fontsError] = useFonts({
-  //   "Pretendard-Regular":
-  //     "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Regular.woff2",
-  //   "Pretendard-Medium":
-  //     "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Medium.woff2",
-  //   "Pretendard-SemiBold":
-  //     "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-SemiBold.woff2",
-  //   "Pretendard-Bold":
-  //     "https://cdn.jsdelivr.net/gh/fonts-archive/Pretendard/Pretendard-Bold.woff2",
-  // });
-
   useEffect(() => {
     if (Platform.OS === "ios") {
       I18nManager.allowRTL(false);
       I18nManager.forceRTL(false);
     }
   }, []);
-
-  // 폰트 로딩을 건너뛰고 바로 앱 시작
-  // if (!fontsLoaded) {
-  //   return (
-  //     <View
-  //       style={{
-  //         flex: 1,
-  //         justifyContent: "center",
-  //         alignItems: "center",
-  //         backgroundColor: "#202123",
-  //       }}
-  //     >
-  //       <ActivityIndicator size="large" color="#FFFFFF" />
-  //     </View>
-  //   );
-  // }
 
   return (
     <QueryClientProvider client={queryClient}>

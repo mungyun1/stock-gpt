@@ -58,14 +58,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
-    paddingBottom: 4,
   },
   scrollView: {
     flexGrow: 0,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
     gap: 12,
   },
   categoryButton: {
