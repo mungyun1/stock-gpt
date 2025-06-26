@@ -1006,9 +1006,16 @@ const ChatScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Background Logo - Fixed Position */}
+      <Image
+        source={require("../../assets/icon.png")}
+        style={styles.backgroundLogo}
+        resizeMode="contain"
+      />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: "transparent" }]}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         {/* Header */}
@@ -1034,9 +1041,11 @@ const ChatScreen = () => {
               />
             </TouchableOpacity>
 
-            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
-              Stalk
-            </Text>
+            <Image
+              source={require("../../assets/title.png")}
+              style={styles.headerTitle}
+              resizeMode="contain"
+            />
 
             <TouchableOpacity
               style={[
@@ -1052,13 +1061,9 @@ const ChatScreen = () => {
         </SafeAreaView>
 
         {/* Chat Messages */}
-        <View style={styles.messagesWrapper}>
-          {/* Background Logo */}
-          <Image
-            source={require("../../assets/logo.png")}
-            style={styles.backgroundLogo}
-            resizeMode="contain"
-          />
+        <View
+          style={[styles.messagesWrapper, { backgroundColor: "transparent" }]}
+        >
           <ScrollView
             style={styles.messagesContainer}
             contentContainerStyle={[
@@ -1490,10 +1495,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: "50%",
     left: "50%",
-    width: 200,
-    height: 200,
-    marginTop: -100,
-    marginLeft: -100,
+    width: 120,
+    height: 120,
+    marginTop: -60,
+    marginLeft: -60,
     opacity: 0.08,
     zIndex: 0,
   },
@@ -1790,10 +1795,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 18,
-    fontFamily: "Pretendard-SemiBold",
-    textAlign: "center",
-    letterSpacing: -0.5,
+    height: 24,
+    alignSelf: "center",
   },
   newChatHeaderButton: {
     padding: 8,
