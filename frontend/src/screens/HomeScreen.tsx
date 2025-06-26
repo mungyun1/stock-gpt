@@ -24,6 +24,7 @@ import { RootTabParamList } from "../types/navigation";
 import CommonHeader from "../components/CommonHeader";
 import HelpScreen from "../components/HelpScreen";
 import AppInfoScreen from "../components/AppInfoScreen";
+import SettingsScreen from "./SettingsScreen";
 
 type NavigationProp = BottomTabNavigationProp<RootTabParamList, "Home">;
 
@@ -94,7 +95,7 @@ const HomeScreen = () => {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const [currentScreen, setCurrentScreen] = useState<
-    "main" | "help" | "appInfo"
+    "main" | "help" | "appInfo" | "settings"
   >("main");
 
   const showHelp = () => {
@@ -103,6 +104,10 @@ const HomeScreen = () => {
 
   const showAppInfo = () => {
     setCurrentScreen("appInfo");
+  };
+
+  const showSettings = () => {
+    setCurrentScreen("settings");
   };
 
   const showMain = () => {
@@ -115,6 +120,10 @@ const HomeScreen = () => {
 
   if (currentScreen === "appInfo") {
     return <AppInfoScreen onBack={showMain} />;
+  }
+
+  if (currentScreen === "settings") {
+    return <SettingsScreen onBack={showMain} />;
   }
 
   return (
@@ -224,7 +233,7 @@ const HomeScreen = () => {
               icon={<MaterialIcons name="settings" size={24} color="#9E9E9E" />}
               title="설정"
               subtitle="개인화 및 환경 설정"
-              onPress={() => {}}
+              onPress={showSettings}
             />
           </MenuSection>
         </ScrollView>
