@@ -1,4 +1,4 @@
-import React, { FC, ReactNode } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -22,6 +22,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { RootTabParamList } from "../types/navigation";
 import CommonHeader from "../components/CommonHeader";
+import HelpScreen from "../components/HelpScreen";
 
 type NavigationProp = BottomTabNavigationProp<RootTabParamList, "Home">;
 
@@ -91,6 +92,19 @@ const MenuSection: FC<MenuSectionProps> = ({ title, children }) => {
 const HomeScreen = () => {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
+  const [currentScreen, setCurrentScreen] = useState<"main" | "help">("main");
+
+  const showHelp = () => {
+    setCurrentScreen("help");
+  };
+
+  const showMain = () => {
+    setCurrentScreen("main");
+  };
+
+  if (currentScreen === "help") {
+    return <HelpScreen onBack={showMain} />;
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -185,7 +199,7 @@ const HomeScreen = () => {
               }
               title="도움말"
               subtitle="사용법 및 FAQ"
-              onPress={() => {}}
+              onPress={showHelp}
             />
             <MenuItem
               icon={
