@@ -23,6 +23,7 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { RootTabParamList } from "../types/navigation";
 import CommonHeader from "../components/CommonHeader";
 import HelpScreen from "../components/HelpScreen";
+import AppInfoScreen from "../components/AppInfoScreen";
 
 type NavigationProp = BottomTabNavigationProp<RootTabParamList, "Home">;
 
@@ -92,10 +93,16 @@ const MenuSection: FC<MenuSectionProps> = ({ title, children }) => {
 const HomeScreen = () => {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
-  const [currentScreen, setCurrentScreen] = useState<"main" | "help">("main");
+  const [currentScreen, setCurrentScreen] = useState<
+    "main" | "help" | "appInfo"
+  >("main");
 
   const showHelp = () => {
     setCurrentScreen("help");
+  };
+
+  const showAppInfo = () => {
+    setCurrentScreen("appInfo");
   };
 
   const showMain = () => {
@@ -104,6 +111,10 @@ const HomeScreen = () => {
 
   if (currentScreen === "help") {
     return <HelpScreen onBack={showMain} />;
+  }
+
+  if (currentScreen === "appInfo") {
+    return <AppInfoScreen onBack={showMain} />;
   }
 
   return (
@@ -207,7 +218,7 @@ const HomeScreen = () => {
               }
               title="앱 정보"
               subtitle="버전 정보 및 업데이트"
-              onPress={() => {}}
+              onPress={showAppInfo}
             />
             <MenuItem
               icon={<MaterialIcons name="settings" size={24} color="#9E9E9E" />}
