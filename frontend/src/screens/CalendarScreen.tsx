@@ -83,7 +83,6 @@ const styles = StyleSheet.create({
 
   scrollContainer: {
     flex: 1,
-    marginTop: 8,
   },
   scrollContent: {
     padding: 20,
