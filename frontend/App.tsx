@@ -13,6 +13,7 @@ import { View, ActivityIndicator, I18nManager, Platform } from "react-native";
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useThemeColors } from "./src/theme/colors";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const Tab = createBottomTabNavigator();
 const StockStack = createNativeStackNavigator();
@@ -50,8 +51,8 @@ function TabNavigator() {
           backgroundColor: colors.cardBackground,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 85,
-          paddingBottom: 8,
+          height: Platform.OS === "ios" ? 85 : 65,
+          paddingBottom: Platform.OS === "ios" ? 25 : 8,
           paddingTop: 8,
         },
         tabBarActiveTintColor: colors.accent,
@@ -130,9 +131,11 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <NavigationContainer>
-        <TabNavigator />
-      </NavigationContainer>
+      <SafeAreaProvider>
+        <NavigationContainer>
+          <TabNavigator />
+        </NavigationContainer>
+      </SafeAreaProvider>
     </QueryClientProvider>
   );
 }

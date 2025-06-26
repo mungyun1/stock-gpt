@@ -384,6 +384,7 @@ const StockListScreen: React.FC = () => {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
+      edges={["top", "left", "right"]}
     >
       <View style={styles.content}>
         <ScrollView

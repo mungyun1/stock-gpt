@@ -72,7 +72,7 @@ const StockCategoryScreen: React.FC = () => {
       <CommonHeader title="종목 추천" />
       <SafeAreaView
         style={[styles.content, { backgroundColor: colors.background }]}
-        edges={["bottom", "left", "right"]}
+        edges={["left", "right"]}
       >
         <ScrollView
           style={styles.scrollView}

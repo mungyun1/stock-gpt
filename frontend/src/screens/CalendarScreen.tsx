@@ -38,7 +38,7 @@ const CalendarScreen = () => {
       <CommonHeader title="캘린더" />
       <SafeAreaView
         style={[styles.content, { backgroundColor: colors.background }]}
-        edges={["bottom", "left", "right"]}
+        edges={["left", "right"]}
       >
         <View style={styles.mainContent}>
           <View style={styles.navigationWrapper}>

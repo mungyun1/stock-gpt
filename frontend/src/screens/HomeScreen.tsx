@@ -122,7 +122,7 @@ const HomeScreen = () => {
       <CommonHeader title="더보기" />
       <SafeAreaView
         style={[styles.safeAreaContent, { backgroundColor: colors.background }]}
-        edges={["bottom", "left", "right"]}
+        edges={["left", "right"]}
       >
         <ScrollView
           style={styles.scrollView}

@@ -104,7 +104,7 @@ const MarketNewsScreen = () => {
       <CommonHeader title="시장 뉴스" />
       <SafeAreaView
         style={[styles.content, { backgroundColor: colors.background }]}
-        edges={["bottom", "left", "right"]}
+        edges={["left", "right"]}
       >
         <CategorySelector
           selectedCategory={selectedCategory}

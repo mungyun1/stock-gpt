@@ -1019,7 +1019,10 @@ const ChatScreen = () => {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         {/* Header */}
-        <SafeAreaView edges={["top"]}>
+        <SafeAreaView
+          edges={["top"]}
+          style={{ backgroundColor: colors.cardBackground }}
+        >
           <View
             style={[
               styles.header,
