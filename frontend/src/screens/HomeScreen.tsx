@@ -15,107 +15,82 @@ import {
   MaterialCommunityIcons,
   Ionicons,
   FontAwesome5,
+  MaterialIcons,
+  AntDesign,
 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
-import HeaderSection from "../components/HeaderSection";
-import FeaturesModal from "../components/FeaturesModal";
 import { RootTabParamList } from "../types/navigation";
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-} from "react-native-reanimated";
 import CommonHeader from "../components/CommonHeader";
 
 type NavigationProp = BottomTabNavigationProp<RootTabParamList, "Home">;
 
-interface FeatureButtonProps {
+interface MenuItemProps {
   icon: ReactNode;
   title: string;
   subtitle: string;
   onPress: () => void;
-  iconBgColor: string;
-  isPrimary?: boolean;
+  showArrow?: boolean;
 }
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+interface MenuSectionProps {
+  title: string;
+  children: ReactNode;
+}
 
-const FeatureButton: FC<FeatureButtonProps> = ({
+const MenuItem: FC<MenuItemProps> = ({
   icon,
   title,
   subtitle,
   onPress,
-  iconBgColor,
-  isPrimary = false,
+  showArrow = true,
 }) => {
   const colors = useThemeColors();
-  const isPressed = useSharedValue(false);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        {
-          scale: withSpring(isPressed.value ? 0.95 : 1, {
-            damping: 15,
-            stiffness: 300,
-          }),
-        },
-      ],
-    };
-  });
 
   return (
-    <AnimatedPressable
-      style={[
-        styles.featureButton,
-        isPrimary
-          ? [styles.primaryButton, { backgroundColor: colors.accent }]
-          : { backgroundColor: colors.cardBackground },
-        animatedStyle,
-      ]}
+    <TouchableOpacity
+      style={[styles.menuItem, { backgroundColor: colors.cardBackground }]}
       onPress={onPress}
-      onPressIn={() => {
-        isPressed.value = true;
-      }}
-      onPressOut={() => {
-        isPressed.value = false;
-      }}
+      activeOpacity={0.7}
     >
-      <View
-        style={[
-          styles.iconContainer,
-          isPrimary
-            ? styles.primaryIconContainer
-            : { backgroundColor: iconBgColor },
-        ]}
-      >
-        {icon}
+      <View style={styles.menuItemContent}>
+        <View style={styles.iconContainer}>{icon}</View>
+        <View style={styles.textContainer}>
+          <Text style={[styles.menuTitle, { color: colors.textPrimary }]}>
+            {title}
+          </Text>
+          <Text style={[styles.menuSubtitle, { color: colors.textSecondary }]}>
+            {subtitle}
+          </Text>
+        </View>
+        {showArrow && (
+          <MaterialIcons
+            name="keyboard-arrow-right"
+            size={24}
+            color={colors.textSecondary}
+          />
+        )}
       </View>
-      <Text
-        style={[
-          styles.buttonTitle,
-          isPrimary ? styles.primaryButtonTitle : { color: colors.textPrimary },
-        ]}
-      >
+    </TouchableOpacity>
+  );
+};
+
+const MenuSection: FC<MenuSectionProps> = ({ title, children }) => {
+  const colors = useThemeColors();
+
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
         {title}
       </Text>
-      <Text
-        style={[
-          styles.buttonSubtitle,
-          isPrimary && styles.primaryButtonSubtitle,
-        ]}
-      >
-        {subtitle}
-      </Text>
-    </AnimatedPressable>
+      <View style={styles.sectionContent}>{children}</View>
+    </View>
   );
 };
 
 const HomeScreen = () => {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
-  const { showModal, fadeAnim, openModal, closeModal } = useModalAnimation();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -128,75 +103,106 @@ const HomeScreen = () => {
           style={styles.scrollView}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
-          bounces={false}
         >
-          <View style={styles.content}>
-            <View style={styles.mainSection}>
-              <HeaderSection />
-              <View style={styles.gridContainer}>
-                <View style={styles.gridRow}>
-                  <FeatureButton
-                    icon={
-                      <MaterialCommunityIcons
-                        name="chart-line"
-                        size={32}
-                        color="#FFFFFF"
-                      />
-                    }
-                    title="주식 분석"
-                    subtitle="AI 기반 분석"
-                    onPress={() => navigation.navigate("Chat")}
-                    iconBgColor="#E3F2FD"
-                    isPrimary
-                  />
-                  <FeatureButton
-                    icon={
-                      <Ionicons name="calendar" size={28} color="#F57C00" />
-                    }
-                    title="캘린더"
-                    subtitle="일정 관리"
-                    onPress={() => navigation.navigate("Calendar")}
-                    iconBgColor="#FFF3E0"
-                  />
-                </View>
-                <View style={styles.gridRow}>
-                  <FeatureButton
-                    icon={
-                      <FontAwesome5
-                        name="newspaper"
-                        size={24}
-                        color="#388E3C"
-                      />
-                    }
-                    title="시장 동향"
-                    subtitle="섹터별 뉴스"
-                    onPress={() => navigation.navigate("MarketNews")}
-                    iconBgColor="#E8F5E8"
-                  />
-                  <FeatureButton
-                    icon={
-                      <MaterialCommunityIcons
-                        name="trending-up"
-                        size={28}
-                        color="#7B1FA2"
-                      />
-                    }
-                    title="주식 추천"
-                    subtitle="TOP5 종목"
-                    onPress={() => navigation.navigate("StockStack")}
-                    iconBgColor="#F3E5F5"
-                  />
-                </View>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
+          <MenuSection title="주요 기능">
+            <MenuItem
+              icon={
+                <MaterialCommunityIcons
+                  name="chart-line"
+                  size={24}
+                  color="#2196F3"
+                />
+              }
+              title="주식 분석"
+              subtitle="AI 기반 종목 분석 및 상담"
+              onPress={() => navigation.navigate("Chat")}
+            />
+            <MenuItem
+              icon={<Ionicons name="calendar" size={24} color="#FF9800" />}
+              title="투자 캘린더"
+              subtitle="중요 일정 및 이벤트 관리"
+              onPress={() => navigation.navigate("Calendar")}
+            />
+            <MenuItem
+              icon={<FontAwesome5 name="newspaper" size={20} color="#4CAF50" />}
+              title="시장 뉴스"
+              subtitle="실시간 증시 및 경제 뉴스"
+              onPress={() => navigation.navigate("MarketNews")}
+            />
+            <MenuItem
+              icon={
+                <MaterialCommunityIcons
+                  name="trending-up"
+                  size={24}
+                  color="#9C27B0"
+                />
+              }
+              title="주식 추천"
+              subtitle="AI 추천 TOP5 종목"
+              onPress={() => navigation.navigate("StockStack")}
+            />
+          </MenuSection>
 
-        <FeaturesModal
-          visible={showModal}
-          fadeAnim={fadeAnim}
-          onClose={closeModal}
-        />
+          <MenuSection title="투자 도구">
+            <MenuItem
+              icon={
+                <MaterialCommunityIcons
+                  name="calculator"
+                  size={24}
+                  color="#607D8B"
+                />
+              }
+              title="투자 계산기"
+              subtitle="수익률, 세금 계산"
+              onPress={() => {}}
+            />
+            <MenuItem
+              icon={
+                <MaterialCommunityIcons
+                  name="chart-pie"
+                  size={24}
+                  color="#FF5722"
+                />
+              }
+              title="포트폴리오 분석"
+              subtitle="자산 배분 및 리스크 분석"
+              onPress={() => {}}
+            />
+            <MenuItem
+              icon={
+                <MaterialIcons name="notifications" size={24} color="#FFC107" />
+              }
+              title="알림 설정"
+              subtitle="주가 알림 및 뉴스 알림"
+              onPress={() => {}}
+            />
+          </MenuSection>
+
+          <MenuSection title="서비스 정보">
+            <MenuItem
+              icon={
+                <MaterialIcons name="help-outline" size={24} color="#9E9E9E" />
+              }
+              title="도움말"
+              subtitle="사용법 및 FAQ"
+              onPress={() => {}}
+            />
+            <MenuItem
+              icon={
+                <MaterialIcons name="info-outline" size={24} color="#9E9E9E" />
+              }
+              title="앱 정보"
+              subtitle="버전 정보 및 업데이트"
+              onPress={() => {}}
+            />
+            <MenuItem
+              icon={<MaterialIcons name="settings" size={24} color="#9E9E9E" />}
+              title="설정"
+              subtitle="개인화 및 환경 설정"
+              onPress={() => {}}
+            />
+          </MenuSection>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -213,84 +219,62 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    flexGrow: 1,
+    paddingTop: 24,
+    paddingBottom: 20,
   },
-  content: {
-    flex: 1,
-    justifyContent: "center",
+  section: {
+    marginBottom: 32,
   },
-  mainSection: {
-    alignItems: "center",
-    paddingVertical: 20,
-    width: "100%",
+  sectionTitle: {
+    fontSize: 14,
+    fontFamily: "Pretendard-Medium",
+    marginBottom: 12,
+    marginHorizontal: 20,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  gridContainer: {
-    width: "100%",
+  sectionContent: {
     paddingHorizontal: 20,
-    gap: 16,
+    gap: 2,
   },
-  gridRow: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  featureButton: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 20,
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
+  menuItem: {
+    borderRadius: 12,
+    marginBottom: 8,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  primaryButton: {
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-    padding: 24,
+  menuItemContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
   },
   iconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginRight: 16,
   },
-  primaryIconContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    width: 60,
-    height: 60,
-    borderRadius: 20,
-    marginBottom: 10,
+  textContainer: {
+    flex: 1,
   },
-  buttonTitle: {
+  menuTitle: {
     fontSize: 16,
     fontFamily: "Pretendard-SemiBold",
-    marginBottom: 6,
-    textAlign: "center",
-    lineHeight: 22,
+    marginBottom: 4,
   },
-  primaryButtonTitle: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    lineHeight: 24,
-  },
-  buttonSubtitle: {
-    fontSize: 12,
+  menuSubtitle: {
+    fontSize: 14,
     fontFamily: "Pretendard-Regular",
-    color: "#999999",
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  primaryButtonSubtitle: {
-    color: "rgba(255, 255, 255, 0.8)",
+    lineHeight: 20,
   },
 });
 

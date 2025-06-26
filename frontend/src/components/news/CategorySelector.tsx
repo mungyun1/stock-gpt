@@ -63,13 +63,13 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   contentContainer: {
-    gap: 12,
+    gap: 16,
   },
   categoryButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
     backgroundColor: "transparent",
-    minWidth: 60,
+    minWidth: 80,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -78,13 +78,13 @@ const styles = StyleSheet.create({
     borderBottomColor: "#0B4619",
   },
   categoryText: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: "Pretendard-SemiBold",
     color: "#666666",
     textAlign: "center",
   },
   categoryTextActive: {
     color: "#0B4619",
-    fontFamily: "Pretendard-Bold",
+    fontFamily: "Pretendard-ExtraBold",
   },
 });
