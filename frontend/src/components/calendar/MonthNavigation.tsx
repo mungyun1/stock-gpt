@@ -28,7 +28,7 @@ const MonthNavigation: React.FC<MonthNavigationProps> = ({
   const canGoNext = canGoToNextMonth(currentMonth);
 
   return (
-    <View style={[styles.monthNav, { backgroundColor: colors.cardBackground }]}>
+    <View style={styles.monthNav}>
       <TouchableOpacity
         style={[
           styles.monthButton,
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomWidth: 1,
+    borderBottomWidth: 3,
     borderBottomColor: "#F0F0F0",
   },
   monthButton: {

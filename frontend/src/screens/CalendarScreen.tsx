@@ -41,13 +41,11 @@ const CalendarScreen = () => {
         edges={["left", "right"]}
       >
         <View style={styles.mainContent}>
-          <View style={styles.navigationWrapper}>
-            <MonthNavigation
-              currentMonth={currentMonth}
-              onPrevMonth={handlePrevMonth}
-              onNextMonth={handleNextMonth}
-            />
-          </View>
+          <MonthNavigation
+            currentMonth={currentMonth}
+            onPrevMonth={handlePrevMonth}
+            onNextMonth={handleNextMonth}
+          />
 
           <ScrollView
             style={styles.scrollContainer}
@@ -82,11 +80,10 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
   },
-  navigationWrapper: {
-    paddingBottom: 8,
-  },
+
   scrollContainer: {
     flex: 1,
+    marginTop: 8,
   },
   scrollContent: {
     padding: 20,
