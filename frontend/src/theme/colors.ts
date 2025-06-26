@@ -1,4 +1,4 @@
-import { useColorScheme } from "react-native";
+import { useColorScheme, Platform } from "react-native";
 
 export const useThemeColors = () => {
   const colorScheme = useColorScheme();
@@ -25,4 +25,32 @@ export const useThemeColors = () => {
     // 주요 색상
     primary: isDark ? "#3B82F6" : "#0B4619",
   };
+};
+
+// 폰트 설정 (실제 Pretendard 폰트 사용)
+export const getFontFamily = (
+  weight: "regular" | "medium" | "semibold" | "bold" | "extrabold"
+) => {
+  switch (weight) {
+    case "regular":
+      return "Pretendard-Regular";
+    case "medium":
+      return "Pretendard-Medium";
+    case "semibold":
+      return "Pretendard-SemiBold";
+    case "bold":
+      return "Pretendard-Bold";
+    case "extrabold":
+      return "Pretendard-ExtraBold";
+    default:
+      return "Pretendard-Regular";
+  }
+};
+
+export const getFontWeight = (
+  weight: "regular" | "medium" | "semibold" | "bold" | "extrabold"
+): any => {
+  // Pretendard 폰트를 사용할 때는 fontWeight를 normal로 설정
+  // 실제 굵기는 폰트 파일 자체에서 결정됨
+  return "normal";
 };

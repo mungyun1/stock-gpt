@@ -8,11 +8,15 @@ import MarketNewsScreen from "./src/screens/MarketNewsScreen";
 import StockCategoryScreen from "./src/screens/StockRecommendationScreen";
 import StockListScreen from "./src/screens/StockListScreen";
 import { Ionicons } from "@expo/vector-icons";
-// import { useFonts } from "expo-font";
+import { useFonts } from "expo-font";
 import { View, ActivityIndicator, I18nManager, Platform } from "react-native";
 import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useThemeColors } from "./src/theme/colors";
+import {
+  useThemeColors,
+  getFontFamily,
+  getFontWeight,
+} from "./src/theme/colors";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 const Tab = createBottomTabNavigator();
@@ -59,7 +63,8 @@ function TabNavigator() {
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarLabelStyle: {
           fontSize: 12,
-          fontFamily: "Pretendard-SemiBold",
+          fontFamily: getFontFamily("semibold"),
+          fontWeight: getFontWeight("semibold"),
           marginTop: 4,
         },
         tabBarIconStyle: {
@@ -122,12 +127,28 @@ function TabNavigator() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    "Pretendard-Regular": require("./assets/fonts/Pretendard-Regular.otf"),
+    "Pretendard-Medium": require("./assets/fonts/Pretendard-Medium.otf"),
+    "Pretendard-SemiBold": require("./assets/fonts/Pretendard-SemiBold.otf"),
+    "Pretendard-Bold": require("./assets/fonts/Pretendard-Bold.otf"),
+    "Pretendard-ExtraBold": require("./assets/fonts/Pretendard-ExtraBold.otf"),
+  });
+
   useEffect(() => {
     if (Platform.OS === "ios") {
       I18nManager.allowRTL(false);
       I18nManager.forceRTL(false);
     }
   }, []);
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

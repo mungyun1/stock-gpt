@@ -1,6 +1,7 @@
 import React, { FC } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getFontFamily, getFontWeight } from "../theme/colors";
 
 interface CommonHeaderProps {
   title: string;
@@ -43,7 +44,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontFamily: "Pretendard-Bold",
+    fontFamily: getFontFamily("bold"),
+    fontWeight: getFontWeight("bold"),
     color: "white",
     flex: 1,
   },

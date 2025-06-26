@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
-import { useThemeColors } from "../theme/colors";
+import { useThemeColors, getFontFamily, getFontWeight } from "../theme/colors";
 
 interface HeaderSectionProps {
   marginTop?: number;
@@ -92,7 +92,8 @@ const styles = StyleSheet.create({
   },
   mainTagline: {
     fontSize: 28,
-    fontFamily: "Pretendard-Bold",
+    fontFamily: getFontFamily("bold"),
+    fontWeight: getFontWeight("bold"),
     marginBottom: 8,
     textAlign: "center",
     letterSpacing: -1,
@@ -105,7 +106,8 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 17,
-    fontFamily: "Pretendard-Medium",
+    fontFamily: getFontFamily("medium"),
+    fontWeight: getFontWeight("medium"),
     opacity: 0.75,
     marginBottom: 24,
     textAlign: "center",
@@ -133,7 +135,8 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 13,
-    fontFamily: "Pretendard-SemiBold",
+    fontFamily: getFontFamily("semibold"),
+    fontWeight: getFontWeight("semibold"),
   },
 });
 
