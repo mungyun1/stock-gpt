@@ -25,6 +25,7 @@ import CommonHeader from "../components/CommonHeader";
 import HelpScreen from "../components/HelpScreen";
 import AppInfoScreen from "../components/AppInfoScreen";
 import SettingsScreen from "./SettingsScreen";
+import InvestmentCalculatorScreen from "../components/InvestmentCalculatorScreen";
 
 type NavigationProp = BottomTabNavigationProp<RootTabParamList, "Home">;
 
@@ -95,7 +96,7 @@ const HomeScreen = () => {
   const colors = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const [currentScreen, setCurrentScreen] = useState<
-    "main" | "help" | "appInfo" | "settings"
+    "main" | "help" | "appInfo" | "settings" | "calculator"
   >("main");
 
   const showHelp = () => {
@@ -108,6 +109,10 @@ const HomeScreen = () => {
 
   const showSettings = () => {
     setCurrentScreen("settings");
+  };
+
+  const showCalculator = () => {
+    setCurrentScreen("calculator");
   };
 
   const showMain = () => {
@@ -124,6 +129,10 @@ const HomeScreen = () => {
 
   if (currentScreen === "settings") {
     return <SettingsScreen onBack={showMain} />;
+  }
+
+  if (currentScreen === "calculator") {
+    return <InvestmentCalculatorScreen onBack={showMain} />;
   }
 
   return (
@@ -187,8 +196,8 @@ const HomeScreen = () => {
                 />
               }
               title="투자 계산기"
-              subtitle="수익률, 세금 계산"
-              onPress={() => {}}
+              subtitle="수익률 계산"
+              onPress={showCalculator}
             />
             <MenuItem
               icon={
