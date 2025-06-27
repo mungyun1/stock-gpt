@@ -12,10 +12,9 @@ import {
   Keyboard,
   Animated,
   Dimensions,
-  Alert,
   Pressable,
-  ListRenderItem,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,7 +25,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Markdown from "react-native-markdown-display";
 
 import { Message } from "../types/chat";
-import ChatGPTResponse from "../components/ChatGPTResponse";
 
 type RootTabParamList = {
   Chat: undefined;
@@ -38,52 +36,12 @@ type RootTabParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootTabParamList>;
 
-type MessageLink = {
-  text: string;
-  url: string;
-};
-
 type Thread = {
   id: string;
   title: string;
   created_at: Date;
   last_message?: string;
 };
-
-// 백엔드 응답 타입 정의
-interface StockAnalysisResponse {
-  stock_info: any; // yfinance에서 반환하는 데이터 타입
-  analysis: string;
-}
-
-interface MarketAnalysisResponse {
-  market_data: {
-    [key: string]: {
-      name?: string;
-      current_price?: number;
-      change_percent?: number;
-      previous_close?: number;
-      volume?: number;
-      price_history?: number[];
-      volume_history?: number[];
-      error?: string;
-      rate?: number;
-      change?: number;
-    };
-  };
-  analysis: string;
-}
-
-// 백엔드 요청 타입 정의
-interface StockAnalysisRequest {
-  ticker: string;
-}
-
-interface MarketAnalysisRequest {
-  indices: string[];
-  lookback_days?: number;
-  include_news?: boolean;
-}
 
 const SIDEBAR_WIDTH = Dimensions.get("window").width * 0.75;
 const THREADS_STORAGE_KEY = "@stock_gpt_threads";
@@ -193,6 +151,15 @@ const ChatScreen = () => {
   );
 
   const ASSISTANT_ID = process.env.EXPO_PUBLIC_OPENAI_ASSISTANT_ID;
+  const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  const OPENAI_BASE_URL = "https://api.openai.com/v1";
+
+  // OpenAI API 요청을 위한 헤더
+  const getOpenAIHeaders = () => ({
+    Authorization: `Bearer ${OPENAI_API_KEY}`,
+    "Content-Type": "application/json",
+    "OpenAI-Beta": "assistants=v2",
+  });
 
   useEffect(() => {
     initializeThread();
@@ -200,101 +167,124 @@ const ChatScreen = () => {
 
   const initializeThread = async () => {
     try {
-      const existingThreads = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
-      if (existingThreads) {
-        const parsedThreads: Thread[] = JSON.parse(existingThreads);
-        setThreads(parsedThreads);
-
-        // 가장 최근 스레드 찾기
-        const mostRecentThread = parsedThreads
-          .filter((thread) => thread.last_message)
-          .sort(
-            (a, b) =>
-              new Date(b.created_at).getTime() -
-              new Date(a.created_at).getTime()
-          )[0];
-
-        if (mostRecentThread) {
-          setThreadId(mostRecentThread.id);
-          await loadThreadMessages(mostRecentThread.id);
-        } else {
-          await createNewThread();
-        }
-      } else {
-        await createNewThread();
-      }
+      await loadThreadsFromOpenAI();
     } catch (error) {
-      // 스레드 초기화 중 오류 처리
+      console.error("스레드 초기화 중 오류:", error);
+      // 오류 발생 시 새 스레드 생성
+      await createNewThread();
     }
   };
 
-  const saveThreads = async (updatedThreads: Thread[]) => {
+  // OpenAI에서 스레드 목록을 가져오는 함수
+  const loadThreadsFromOpenAI = async () => {
     try {
+      const existingThreadIds = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
+      let threadIds: string[] = [];
+
+      if (existingThreadIds) {
+        const parsedThreads: Thread[] = JSON.parse(existingThreadIds);
+        threadIds = parsedThreads.map((thread) => thread.id);
+      }
+
+      if (threadIds.length === 0) {
+        // 저장된 스레드가 없으면 새 스레드 생성
+        await createNewThread();
+        return;
+      }
+
+      // 각 스레드 ID에 대해 OpenAI에서 최신 정보 가져오기
+      const threadPromises = threadIds.map(async (threadId) => {
+        try {
+          // 스레드 정보 가져오기
+          const threadResponse = await fetch(
+            `${OPENAI_BASE_URL}/threads/${threadId}`,
+            {
+              method: "GET",
+              headers: getOpenAIHeaders(),
+            }
+          );
+
+          if (!threadResponse.ok) {
+            console.warn(
+              `스레드 ${threadId} 로드 실패:`,
+              threadResponse.status
+            );
+            return null;
+          }
+
+          const threadData = await threadResponse.json();
+
+          // 스레드의 최신 메시지 가져오기
+          const messagesResponse = await fetch(
+            `${OPENAI_BASE_URL}/threads/${threadId}/messages?limit=1`,
+            {
+              method: "GET",
+              headers: getOpenAIHeaders(),
+            }
+          );
+
+          let lastMessage = "";
+          if (messagesResponse.ok) {
+            const messagesData = await messagesResponse.json();
+            if (messagesData.data && messagesData.data.length > 0) {
+              const latestMessage = messagesData.data[0];
+              if (
+                latestMessage.content &&
+                latestMessage.content[0]?.type === "text"
+              ) {
+                lastMessage =
+                  latestMessage.content[0].text.value.substring(0, 50) + "...";
+              }
+            }
+          }
+
+          return {
+            id: threadData.id,
+            title: threadData.metadata?.title || "새로운 대화",
+            created_at: new Date(threadData.created_at * 1000),
+            last_message: lastMessage,
+          } as Thread;
+        } catch (error) {
+          console.warn(`스레드 ${threadId} 처리 중 오류:`, error);
+          return null;
+        }
+      });
+
+      const loadedThreads = await Promise.all(threadPromises);
+      const validThreads = loadedThreads.filter(
+        (thread) => thread !== null
+      ) as Thread[];
+
+      if (validThreads.length === 0) {
+        // 유효한 스레드가 없으면 새 스레드 생성
+        await createNewThread();
+        return;
+      }
+
+      // 생성 시간 순으로 정렬 (최신순)
+      const sortedThreads = validThreads.sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setThreads(sortedThreads);
+
+      // AsyncStorage 업데이트
       await AsyncStorage.setItem(
         THREADS_STORAGE_KEY,
-        JSON.stringify(updatedThreads)
+        JSON.stringify(sortedThreads)
       );
-      setThreads(updatedThreads);
+
+      // 가장 최근 스레드 선택
+      const mostRecentThread = sortedThreads[0];
+      if (mostRecentThread) {
+        setThreadId(mostRecentThread.id);
+        await loadThreadMessages(mostRecentThread.id);
+      }
     } catch (error) {
-      // 스레드 저장 중 오류 처리
+      console.error("OpenAI 스레드 로드 중 오류:", error);
+      throw error;
     }
-  };
-
-  // 티커 추출 함수
-  const extractTicker = (message: string): string | null => {
-    const tickerPattern = /\b[A-Z]{1,5}\b/g;
-    const matches = message.match(tickerPattern);
-    return matches ? matches[0] : null;
-  };
-
-  // 주식 티커 패턴
-  const STOCK_TICKER_PATTERN = /\b[A-Z]{1,5}\b/g;
-
-  // 백엔드 URL
-  const BACKEND_URL = "http://localhost:8000";
-
-  // 시장 분석 관련 키워드
-  const MARKET_KEYWORDS = [
-    "시장",
-    "마켓",
-    "market",
-    "금리",
-    "환율",
-    "interest",
-    "rate",
-    "S&P",
-    "SP500",
-    "나스닥",
-    "NASDAQ",
-    "코스피",
-    "KOSPI",
-    "코스닥",
-    "KOSDAQ",
-    "증시",
-    "지수",
-    "index",
-    "글로벌",
-    "global",
-  ];
-
-  // 입력 메시지 분석
-  const analyzeUserInput = (
-    message: string
-  ): "stock" | "market" | "general" => {
-    // 대소문자 구분 없이 검색하기 위해 소문자로 변환
-    const lowerMessage = message.toLowerCase();
-
-    // 티커 심볼이 있는지 확인
-    const hasStockTicker = STOCK_TICKER_PATTERN.test(message);
-
-    // 시장 분석 키워드가 있는지 확인
-    const hasMarketKeyword = MARKET_KEYWORDS.some((keyword) =>
-      lowerMessage.includes(keyword.toLowerCase())
-    );
-
-    if (hasStockTicker) return "stock";
-    if (hasMarketKeyword) return "market";
-    return "general";
   };
 
   const handleSend = async () => {
@@ -321,66 +311,7 @@ const ChatScreen = () => {
     setIsTyping(true);
 
     try {
-      const messageType = analyzeUserInput(userMessage);
-
-      if (messageType === "stock") {
-        const ticker = extractTicker(userMessage);
-        if (ticker) {
-          const stockRequest: StockAnalysisRequest = { ticker };
-
-          const response = await fetch(`${BACKEND_URL}/analyze`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(stockRequest),
-          });
-
-          if (response.ok) {
-            const data: StockAnalysisResponse = await response.json();
-            const analysisMessage: Message = {
-              id: (Date.now() + 1).toString(),
-              text: data.analysis,
-              isUser: false,
-              createdAt: new Date(),
-            };
-            setMessages((prev) => [...prev, analysisMessage]);
-          } else {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-        } else {
-          await sendMessageToAssistant(userMessage);
-        }
-      } else if (messageType === "market") {
-        const marketRequest: MarketAnalysisRequest = {
-          indices: ["^GSPC", "^IXIC", "^DJI", "^KS11", "^KQ11"],
-          lookback_days: 30,
-          include_news: true,
-        };
-
-        const response = await fetch(`${BACKEND_URL}/market-analyze`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(marketRequest),
-        });
-
-        if (response.ok) {
-          const data: MarketAnalysisResponse = await response.json();
-          const analysisMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            text: data.analysis,
-            isUser: false,
-            createdAt: new Date(),
-          };
-          setMessages((prev) => [...prev, analysisMessage]);
-        } else {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-      } else {
-        await sendMessageToAssistant(userMessage);
-      }
+      await sendMessageToAssistant(userMessage);
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -396,10 +327,6 @@ const ChatScreen = () => {
     }
   };
 
-  const handleLink = (url: string) => {
-    Linking.openURL(url);
-  };
-
   const toggleSidebar = () => {
     Keyboard.dismiss();
     const newSidebarState = !isSidebarOpen;
@@ -409,19 +336,27 @@ const ChatScreen = () => {
     // 상태를 먼저 업데이트
     setIsSidebarOpen(newSidebarState);
 
+    // 애니메이션을 즉시 시작
     Animated.parallel([
       Animated.spring(sidebarAnimation, {
         toValue,
         useNativeDriver: true,
-        tension: 65,
-        friction: 11,
+        tension: 65, // 적당한 속도로 조정
+        friction: 10, // 부드러운 애니메이션
       }),
       Animated.timing(overlayAnimation, {
         toValue: overlayToValue,
-        duration: 200,
+        duration: 250, // 조금 더 여유있게
         useNativeDriver: true,
       }),
     ]).start();
+
+    // 사이드바를 열 때 스레드 목록 새로고침 (백그라운드에서 실행)
+    if (newSidebarState) {
+      loadThreadsFromOpenAI().catch((error) => {
+        console.error("스레드 목록 새로고침 중 오류:", error);
+      });
+    }
   };
 
   const handleRetry = async (failedMessageId: string) => {
@@ -558,14 +493,12 @@ const ChatScreen = () => {
     try {
       // 메시지 생성
       const createdMessageResponse = await fetch(
-        `${BACKEND_URL}/threads/${threadId}/messages`,
+        `${OPENAI_BASE_URL}/threads/${threadId}/messages`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: getOpenAIHeaders(),
           body: JSON.stringify({
-            thread_id: threadId,
+            role: "user",
             content: userMessage,
           }),
         }
@@ -581,14 +514,11 @@ const ChatScreen = () => {
 
       // Run 생성
       const runResponse = await fetch(
-        `${BACKEND_URL}/threads/${threadId}/runs`,
+        `${OPENAI_BASE_URL}/threads/${threadId}/runs`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: getOpenAIHeaders(),
           body: JSON.stringify({
-            thread_id: threadId,
             assistant_id: ASSISTANT_ID!,
           }),
         }
@@ -602,7 +532,11 @@ const ChatScreen = () => {
 
       // Run 상태 확인
       let runStatus = await fetch(
-        `${BACKEND_URL}/threads/${threadId}/runs/${run.id}`
+        `${OPENAI_BASE_URL}/threads/${threadId}/runs/${run.id}`,
+        {
+          method: "GET",
+          headers: getOpenAIHeaders(),
+        }
       );
       let runStatusData = await runStatus.json();
 
@@ -612,7 +546,11 @@ const ChatScreen = () => {
       ) {
         await delay(1000);
         runStatus = await fetch(
-          `${BACKEND_URL}/threads/${threadId}/runs/${run.id}`
+          `${OPENAI_BASE_URL}/threads/${threadId}/runs/${run.id}`,
+          {
+            method: "GET",
+            headers: getOpenAIHeaders(),
+          }
         );
         runStatusData = await runStatus.json();
       }
@@ -623,7 +561,11 @@ const ChatScreen = () => {
 
       // 메시지 목록 가져오기
       const messagesResponse = await fetch(
-        `${BACKEND_URL}/threads/${threadId}/messages`
+        `${OPENAI_BASE_URL}/threads/${threadId}/messages`,
+        {
+          method: "GET",
+          headers: getOpenAIHeaders(),
+        }
       );
       if (!messagesResponse.ok) {
         throw new Error(`Failed to fetch messages: ${messagesResponse.status}`);
@@ -645,8 +587,24 @@ const ChatScreen = () => {
           createdAt: new Date(),
         };
         setMessages((prev) => [...prev, analysisMessage]);
+
+        // 스레드 메타데이터 업데이트 (제목과 마지막 메시지)
+        await updateThreadTitle(threadId, userMessage);
+
+        // 로컬 스레드 목록의 last_message도 업데이트
+        setThreads((prevThreads) =>
+          prevThreads.map((thread) =>
+            thread.id === threadId
+              ? {
+                  ...thread,
+                  last_message: userMessage.substring(0, 50) + "...",
+                }
+              : thread
+          )
+        );
       }
     } catch (error) {
+      console.error("메시지 전송 중 오류:", error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: "죄송합니다. 메시지 전송 중 오류가 발생했습니다. 다시 시도해주세요.",
@@ -661,44 +619,155 @@ const ChatScreen = () => {
   const handleThreadSelect = async (thread: Thread) => {
     try {
       setThreadId(thread.id);
+
+      // 사이드바 닫기 애니메이션 실행
       setIsSidebarOpen(false);
+      Animated.parallel([
+        Animated.spring(sidebarAnimation, {
+          toValue: -SIDEBAR_WIDTH,
+          useNativeDriver: true,
+          tension: 70, // 닫기는 조금 더 빠르게
+          friction: 9,
+        }),
+        Animated.timing(overlayAnimation, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
       await loadThreadMessages(thread.id);
     } catch (error) {
-      // 스레드 선택 중 오류 처리
+      console.error("스레드 선택 중 오류:", error);
     }
+  };
+
+  const confirmDeleteThread = (thread: Thread) => {
+    Alert.alert(
+      "대화 삭제",
+      `"${thread.title}" 대화를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`,
+      [
+        {
+          text: "취소",
+          style: "cancel",
+        },
+        {
+          text: "삭제",
+          style: "destructive",
+          onPress: () => handleDeleteThread(thread.id),
+        },
+      ]
+    );
   };
 
   const handleDeleteThread = async (threadIdToDelete: string) => {
     try {
+      // API 호출로 OpenAI에서 스레드 삭제
       const response = await fetch(
-        `${BACKEND_URL}/threads/${threadIdToDelete}`,
+        `${OPENAI_BASE_URL}/threads/${threadIdToDelete}`,
         {
           method: "DELETE",
+          headers: getOpenAIHeaders(),
         }
       );
 
+      // API 응답이 실패하더라도 로컬에서는 제거 (이미 삭제된 경우 등)
       if (!response.ok) {
-        throw new Error(`Failed to delete thread: ${response.status}`);
+        console.warn(
+          `OpenAI 스레드 삭제 실패: ${response.status}, 로컬에서만 제거`
+        );
       }
 
+      // 로컬 스레드 목록에서 삭제
       const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
-      await saveThreads(updatedThreads);
+      setThreads(updatedThreads);
 
+      // AsyncStorage 업데이트
+      await AsyncStorage.setItem(
+        THREADS_STORAGE_KEY,
+        JSON.stringify(updatedThreads)
+      );
+
+      // 삭제된 스레드가 현재 활성 스레드인 경우 처리
       if (threadId === threadIdToDelete) {
         setThreadId(null);
         setMessages([]);
+
+        // 다른 스레드가 남아있는 경우
         if (updatedThreads.length > 0) {
-          const mostRecentThread = updatedThreads
-            .filter((thread) => thread.last_message)
-            .sort(
-              (a, b) =>
-                new Date(b.created_at).getTime() -
-                new Date(a.created_at).getTime()
-            )[0];
+          // 가장 최근 스레드 선택 (생성 시간 기준)
+          const mostRecentThread = updatedThreads.sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+          )[0];
 
           if (mostRecentThread) {
             setThreadId(mostRecentThread.id);
             await loadThreadMessages(mostRecentThread.id);
+          } else {
+            // 예외적으로 스레드가 있지만 선택할 수 없는 경우 새 스레드 생성
+            await createNewThread();
+          }
+        } else {
+          // 모든 스레드가 삭제된 경우 새 스레드 생성
+          await createNewThread();
+        }
+      }
+
+      // 삭제 후 사이드바 닫기 (사용자 경험 개선)
+      if (isSidebarOpen) {
+        setIsSidebarOpen(false);
+        Animated.parallel([
+          Animated.spring(sidebarAnimation, {
+            toValue: -SIDEBAR_WIDTH,
+            useNativeDriver: true,
+            tension: 70,
+            friction: 9,
+          }),
+          Animated.timing(overlayAnimation, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+    } catch (error) {
+      console.error("스레드 삭제 중 오류:", error);
+
+      // 오류가 발생해도 로컬에서는 제거 (네트워크 오류 등의 경우)
+      const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
+      setThreads(updatedThreads);
+
+      try {
+        await AsyncStorage.setItem(
+          THREADS_STORAGE_KEY,
+          JSON.stringify(updatedThreads)
+        );
+      } catch (storageError) {
+        console.error("AsyncStorage 업데이트 중 오류:", storageError);
+      }
+
+      // 현재 스레드가 삭제된 경우 새 스레드 생성
+      if (threadId === threadIdToDelete) {
+        setThreadId(null);
+        setMessages([]);
+
+        if (updatedThreads.length > 0) {
+          const mostRecentThread = updatedThreads.sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+          )[0];
+
+          if (mostRecentThread) {
+            setThreadId(mostRecentThread.id);
+            try {
+              await loadThreadMessages(mostRecentThread.id);
+            } catch (loadError) {
+              console.error("메시지 로딩 중 오류:", loadError);
+              await createNewThread();
+            }
           } else {
             await createNewThread();
           }
@@ -706,10 +775,6 @@ const ChatScreen = () => {
           await createNewThread();
         }
       }
-    } catch (error) {
-      // 스레드가 이미 삭제된 경우 로컬에서만 제거
-      const updatedThreads = threads.filter((t) => t.id !== threadIdToDelete);
-      await saveThreads(updatedThreads);
     }
   };
 
@@ -717,11 +782,17 @@ const ChatScreen = () => {
     try {
       const newTitle = await generateThreadTitle(lastMessage);
       const updatedThreads = threads.map((thread) =>
-        thread.id === threadId ? { ...thread, title: newTitle } : thread
+        thread.id === threadId
+          ? { ...thread, title: newTitle, last_message: lastMessage }
+          : thread
       );
-      await saveThreads(updatedThreads);
+      setThreads(updatedThreads);
+      await AsyncStorage.setItem(
+        THREADS_STORAGE_KEY,
+        JSON.stringify(updatedThreads)
+      );
     } catch (error) {
-      // 스레드 제목 업데이트 중 오류 처리
+      console.error("스레드 제목 업데이트 중 오류:", error);
     }
   };
 
@@ -743,20 +814,40 @@ const ChatScreen = () => {
     }
 
     try {
-      const updatedThreads = threads.map((thread) => {
-        if (thread.id === threadId) {
-          return {
-            ...thread,
+      // OpenAI 스레드 메타데이터 업데이트
+      const response = await fetch(`${OPENAI_BASE_URL}/threads/${threadId}`, {
+        method: "POST",
+        headers: getOpenAIHeaders(),
+        body: JSON.stringify({
+          metadata: {
             title: newTitle.trim(),
-          };
-        }
-        return thread;
+            last_message:
+              threads.find((t) => t.id === threadId)?.last_message || "",
+          },
+        }),
       });
 
-      setThreads(updatedThreads);
-      await saveThreads(updatedThreads);
+      if (response.ok) {
+        // 로컬 상태 업데이트
+        const updatedThreads = threads.map((thread) => {
+          if (thread.id === threadId) {
+            return {
+              ...thread,
+              title: newTitle.trim(),
+            };
+          }
+          return thread;
+        });
+        setThreads(updatedThreads);
+
+        // AsyncStorage에도 저장
+        await AsyncStorage.setItem(
+          THREADS_STORAGE_KEY,
+          JSON.stringify(updatedThreads)
+        );
+      }
     } catch (error) {
-      // 스레드 제목 업데이트 중 오류 처리
+      console.error("스레드 제목 업데이트 중 오류:", error);
     } finally {
       setEditingThreadId(null);
       setEditingTitle("");
@@ -770,12 +861,33 @@ const ChatScreen = () => {
 
   const createNewThread = async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/threads/create`, {
+      // 사이드바가 열려있다면 닫기 애니메이션 실행
+      if (isSidebarOpen) {
+        setIsSidebarOpen(false);
+        Animated.parallel([
+          Animated.spring(sidebarAnimation, {
+            toValue: -SIDEBAR_WIDTH,
+            useNativeDriver: true,
+            tension: 70,
+            friction: 9,
+          }),
+          Animated.timing(overlayAnimation, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+
+      const response = await fetch(`${OPENAI_BASE_URL}/threads`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
+        headers: getOpenAIHeaders(),
+        body: JSON.stringify({
+          metadata: {
+            title: "새로운 대화",
+            last_message: "",
+          },
+        }),
       });
 
       if (!response.ok) {
@@ -788,56 +900,36 @@ const ChatScreen = () => {
       const newThreadData: Thread = {
         id: newThread.id,
         title: threadTitle,
-        created_at: new Date(),
+        created_at: new Date(newThread.created_at * 1000),
+        last_message: "",
       };
 
       const updatedThreads = [newThreadData, ...threads];
-      await saveThreads(updatedThreads);
+      setThreads(updatedThreads);
+
+      // AsyncStorage에 저장
+      await AsyncStorage.setItem(
+        THREADS_STORAGE_KEY,
+        JSON.stringify(updatedThreads)
+      );
       setThreadId(newThread.id);
       setMessages([]);
     } catch (error) {
-      // 새 스레드 생성 중 오류 처리
+      console.error("새 스레드 생성 중 오류:", error);
     }
   };
 
   const delay = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
-  const handleRateLimit = async () => {
-    const maxRetries = 3;
-    const baseDelay = 2000; // 2초
-    let retryAttempt = 0;
-
-    const retry = async () => {
-      retryAttempt++;
-      if (retryAttempt <= maxRetries) {
-        const waitTime = baseDelay * Math.pow(2, retryAttempt - 1); // 지수 백오프
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            text: `API 사용량 제한에 도달했습니다. ${
-              waitTime / 1000
-            }초 후 재시도합니다...`,
-            isUser: false,
-            id: Date.now().toString(),
-            createdAt: new Date(),
-          },
-        ]);
-
-        await delay(waitTime);
-        return true; // 재시도
-      }
-      return false; // 재시도 중단
-    };
-
-    return retry();
-  };
-
   const loadThreadMessages = async (threadId: string) => {
     try {
       const response = await fetch(
-        `${BACKEND_URL}/threads/${threadId}/messages`
+        `${OPENAI_BASE_URL}/threads/${threadId}/messages`,
+        {
+          method: "GET",
+          headers: getOpenAIHeaders(),
+        }
       );
 
       if (!response.ok) {
@@ -857,19 +949,30 @@ const ChatScreen = () => {
 
       setMessages(convertedMessages);
     } catch (error) {
-      // 이전 메시지 로딩 중 오류 처리
+      console.error("메시지 로딩 중 오류:", error);
     }
   };
 
   const generateThreadTitle = async (message: string) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/generate-title`, {
+      const response = await fetch(`${OPENAI_BASE_URL}/chat/completions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getOpenAIHeaders(),
         body: JSON.stringify({
-          message: message,
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content:
+                "사용자의 메시지를 바탕으로 간단하고 명확한 대화 제목을 생성해주세요. 제목은 15자 이내로 작성하고, 핵심 키워드를 포함해야 합니다.",
+            },
+            {
+              role: "user",
+              content: `다음 메시지에 대한 적절한 대화 제목을 생성해주세요: "${message}"`,
+            },
+          ],
+          max_tokens: 50,
+          temperature: 0.7,
         }),
       });
 
@@ -878,8 +981,11 @@ const ChatScreen = () => {
       }
 
       const data = await response.json();
-      return data.title || "새로운 대화";
+      const title =
+        data.choices?.[0]?.message?.content?.trim() || "새로운 대화";
+      return title.replace(/^["']|["']$/g, ""); // 따옴표 제거
     } catch (error) {
+      console.error("제목 생성 중 오류:", error);
       return "새로운 대화";
     }
   };
@@ -1273,7 +1379,7 @@ const ChatScreen = () => {
           style={[
             styles.sidebar,
             {
-              backgroundColor: colors.cardBackground,
+              backgroundColor: colors.background, // 배경색 통일
               transform: [{ translateX: sidebarAnimation }],
             },
           ]}
@@ -1435,7 +1541,7 @@ const ChatScreen = () => {
                       )}
                       <TouchableOpacity
                         style={styles.deleteButton}
-                        onPress={() => handleDeleteThread(thread.id)}
+                        onPress={() => confirmDeleteThread(thread)}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
                         <Ionicons
