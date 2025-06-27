@@ -4,7 +4,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "semiconductor",
     name: "반도체",
-    description: "메모리와 시스템 반도체 기업들",
+    description: "메모리와 시스템 반도체",
     icon: "💾",
     stocks: [
       {
@@ -92,7 +92,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "ai",
     name: "AI",
-    description: "인공지능 기술 선도 기업들",
+    description: "인공지능 기술 선도도",
     icon: "🤖",
     stocks: [
       {
@@ -180,7 +180,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "bio_pharma",
     name: "바이오/제약",
-    description: "바이오기술과 제약 기업들",
+    description: "바이오와 제약",
     icon: "🧬",
     stocks: [
       {
@@ -268,7 +268,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "electric_vehicle",
     name: "전기차",
-    description: "전기차와 배터리 관련 기업들",
+    description: "전기차와 배터리 관련",
     icon: "🔋",
     stocks: [
       {
@@ -356,7 +356,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "renewable_energy",
     name: "신재생에너지",
-    description: "태양광, 풍력 등 청정 에너지 기업들",
+    description: "태양광, 풍력 등 청정 에너지",
     icon: "🌱",
     stocks: [
       {
@@ -444,7 +444,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "fintech",
     name: "핀테크",
-    description: "금융 기술 혁신 선도 기업들",
+    description: "금융 기술 혁신 선도",
     icon: "💳",
     stocks: [
       {
