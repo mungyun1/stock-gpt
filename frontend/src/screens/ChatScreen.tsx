@@ -170,13 +170,13 @@ const ChatScreen = () => {
       await loadThreadsFromOpenAI();
     } catch (error) {
       console.error("스레드 초기화 중 오류:", error);
-      // 오류 발생 시 새 스레드 생성
-      await createNewThread();
+      // 오류 발생 시 빈 상태로 시작 (사용자가 메시지를 보낼 때 생성)
+      console.log("초기화 오류로 인해 빈 상태로 시작");
     }
   };
 
   // OpenAI에서 스레드 목록을 가져오는 함수
-  const loadThreadsFromOpenAI = async () => {
+  const loadThreadsFromOpenAI = async (keepCurrentSelection = false) => {
     try {
       const existingThreadIds = await AsyncStorage.getItem(THREADS_STORAGE_KEY);
       let threadIds: string[] = [];
@@ -187,8 +187,8 @@ const ChatScreen = () => {
       }
 
       if (threadIds.length === 0) {
-        // 저장된 스레드가 없으면 새 스레드 생성
-        await createNewThread();
+        // 저장된 스레드가 없으면 빈 상태로 시작 (사용자가 메시지를 보낼 때 생성)
+        console.log("저장된 스레드가 없음, 빈 상태로 시작");
         return;
       }
 
@@ -256,8 +256,8 @@ const ChatScreen = () => {
       ) as Thread[];
 
       if (validThreads.length === 0) {
-        // 유효한 스레드가 없으면 새 스레드 생성
-        await createNewThread();
+        // 유효한 스레드가 없으면 빈 상태로 시작 (사용자가 메시지를 보낼 때 생성)
+        console.log("유효한 스레드가 없음, 빈 상태로 시작");
         return;
       }
 
@@ -275,11 +275,13 @@ const ChatScreen = () => {
         JSON.stringify(sortedThreads)
       );
 
-      // 가장 최근 스레드 선택
-      const mostRecentThread = sortedThreads[0];
-      if (mostRecentThread) {
-        setThreadId(mostRecentThread.id);
-        await loadThreadMessages(mostRecentThread.id);
+      // 현재 선택을 유지하거나 가장 최근 스레드 선택
+      if (!keepCurrentSelection || !threadId) {
+        const mostRecentThread = sortedThreads[0];
+        if (mostRecentThread) {
+          setThreadId(mostRecentThread.id);
+          await loadThreadMessages(mostRecentThread.id);
+        }
       }
     } catch (error) {
       console.error("OpenAI 스레드 로드 중 오류:", error);
@@ -303,15 +305,32 @@ const ChatScreen = () => {
 
     setMessages((prev) => [...prev, newMessage]);
 
-    if (!threadId) {
-      await createNewThread();
+    let currentThreadId = threadId;
+
+    if (!currentThreadId) {
+      // 먼저 기존에 비어있는 "새로운 대화" 스레드가 있는지 확인
+      const emptyNewThread = threads.find(
+        (thread) => thread.title === "새로운 대화" && !thread.last_message
+      );
+
+      if (emptyNewThread) {
+        // 빈 "새로운 대화" 스레드가 있으면 해당 스레드를 사용
+        console.log("메시지 전송 시 기존 빈 스레드 사용:", emptyNewThread.id);
+        currentThreadId = emptyNewThread.id;
+        setThreadId(currentThreadId);
+      } else {
+        // 빈 스레드가 없을 때만 새로 생성
+        await createNewThread();
+        // createNewThread에서 설정된 새로운 threadId를 기다림
+        return; // handleSend를 다시 호출하도록 사용자가 다시 전송해야 함
+      }
     }
 
     setIsLoading(true);
     setIsTyping(true);
 
     try {
-      await sendMessageToAssistant(userMessage);
+      await sendMessageToAssistant(userMessage, currentThreadId);
     } catch (error) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -353,7 +372,7 @@ const ChatScreen = () => {
 
     // 사이드바를 열 때 스레드 목록 새로고침 (백그라운드에서 실행)
     if (newSidebarState) {
-      loadThreadsFromOpenAI().catch((error) => {
+      loadThreadsFromOpenAI(true).catch((error) => {
         console.error("스레드 목록 새로고침 중 오류:", error);
       });
     }
@@ -485,15 +504,19 @@ const ChatScreen = () => {
     }
   };
 
-  const sendMessageToAssistant = async (userMessage: string) => {
-    if (!threadId) {
+  const sendMessageToAssistant = async (
+    userMessage: string,
+    useThreadId?: string
+  ) => {
+    const currentThreadId = useThreadId || threadId;
+    if (!currentThreadId) {
       return;
     }
 
     try {
       // 메시지 생성
       const createdMessageResponse = await fetch(
-        `${OPENAI_BASE_URL}/threads/${threadId}/messages`,
+        `${OPENAI_BASE_URL}/threads/${currentThreadId}/messages`,
         {
           method: "POST",
           headers: getOpenAIHeaders(),
@@ -514,7 +537,7 @@ const ChatScreen = () => {
 
       // Run 생성
       const runResponse = await fetch(
-        `${OPENAI_BASE_URL}/threads/${threadId}/runs`,
+        `${OPENAI_BASE_URL}/threads/${currentThreadId}/runs`,
         {
           method: "POST",
           headers: getOpenAIHeaders(),
@@ -532,7 +555,7 @@ const ChatScreen = () => {
 
       // Run 상태 확인
       let runStatus = await fetch(
-        `${OPENAI_BASE_URL}/threads/${threadId}/runs/${run.id}`,
+        `${OPENAI_BASE_URL}/threads/${currentThreadId}/runs/${run.id}`,
         {
           method: "GET",
           headers: getOpenAIHeaders(),
@@ -546,7 +569,7 @@ const ChatScreen = () => {
       ) {
         await delay(1000);
         runStatus = await fetch(
-          `${OPENAI_BASE_URL}/threads/${threadId}/runs/${run.id}`,
+          `${OPENAI_BASE_URL}/threads/${currentThreadId}/runs/${run.id}`,
           {
             method: "GET",
             headers: getOpenAIHeaders(),
@@ -561,7 +584,7 @@ const ChatScreen = () => {
 
       // 메시지 목록 가져오기
       const messagesResponse = await fetch(
-        `${OPENAI_BASE_URL}/threads/${threadId}/messages`,
+        `${OPENAI_BASE_URL}/threads/${currentThreadId}/messages`,
         {
           method: "GET",
           headers: getOpenAIHeaders(),
@@ -589,14 +612,14 @@ const ChatScreen = () => {
         setMessages((prev) => [...prev, analysisMessage]);
 
         // 현재 스레드의 제목이 "새로운 대화"인 경우에만 제목 업데이트
-        const currentThread = threads.find((t) => t.id === threadId);
+        const currentThread = threads.find((t) => t.id === currentThreadId);
         if (currentThread && currentThread.title === "새로운 대화") {
-          await updateThreadTitle(threadId, userMessage);
+          await updateThreadTitle(currentThreadId, userMessage);
         } else {
           // 제목은 업데이트하지 않고 마지막 메시지만 업데이트
           setThreads((prevThreads) =>
             prevThreads.map((thread) =>
-              thread.id === threadId
+              thread.id === currentThreadId
                 ? {
                     ...thread,
                     last_message: userMessage.substring(0, 50) + "...",
@@ -934,6 +957,20 @@ const ChatScreen = () => {
         ]).start();
       }
 
+      // 먼저 기존에 비어있는 "새로운 대화" 스레드가 있는지 확인
+      const emptyNewThread = threads.find(
+        (thread) => thread.title === "새로운 대화" && !thread.last_message
+      );
+
+      if (emptyNewThread) {
+        // 빈 "새로운 대화" 스레드가 있으면 해당 스레드를 선택
+        console.log("기존 빈 스레드 사용:", emptyNewThread.id);
+        setThreadId(emptyNewThread.id);
+        setMessages([]);
+        return;
+      }
+
+      // 빈 스레드가 없을 때만 새로 생성
       const response = await fetch(`${OPENAI_BASE_URL}/threads`, {
         method: "POST",
         headers: getOpenAIHeaders(),
@@ -969,6 +1006,7 @@ const ChatScreen = () => {
       );
       setThreadId(newThread.id);
       setMessages([]);
+      console.log("새 스레드 생성 완료:", newThread.id);
     } catch (error) {
       console.error("새 스레드 생성 중 오류:", error);
     }
