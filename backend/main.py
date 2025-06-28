@@ -28,30 +28,13 @@ class MarketRequest(BaseModel):
     lookback_days: Optional[int] = 30  # 분석할 기간(일)
     include_news: Optional[bool] = True  # 뉴스 데이터 포함 여부
 
-# OpenAI Assistant API 관련 모델들
-class ThreadCreateRequest(BaseModel):
-    pass
-
-class MessageCreateRequest(BaseModel):
-    thread_id: str
-    content: str
-
-class RunCreateRequest(BaseModel):
-    thread_id: str
-    assistant_id: str
-
-class RunRetrieveRequest(BaseModel):
-    thread_id: str
-    run_id: str
-
-class MessagesListRequest(BaseModel):
-    thread_id: str
-
-class ThreadDeleteRequest(BaseModel):
-    thread_id: str
-
 class ThreadTitleRequest(BaseModel):
     message: str
+
+class StockAnalysisRequest(BaseModel):
+    ticker: str
+    thread_id: str
+    assistant_id: str
 
 def build_prompt_from_data(data: dict, ticker: str) -> str:
     return f"""
@@ -158,6 +141,46 @@ async def analyze_stock(request: StockRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/analyze-stock-with-assistant")
+async def analyze_stock_with_assistant(request: StockAnalysisRequest):
+    try:
+        # yfinance로 데이터 수집
+        ticker = yf.Ticker(request.ticker)
+        stock_info = ticker.info
+        
+        # 종목 데이터를 포함한 프롬프트 생성
+        prompt = build_prompt_from_data(stock_info, request.ticker)
+        
+        # OpenAI Assistant API 클라이언트 생성
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
+        # 스레드에 메시지 추가
+        message = client.beta.threads.messages.create(
+            thread_id=request.thread_id,
+            role="user",
+            content=prompt
+        )
+        
+        # Assistant 실행
+        run = client.beta.threads.runs.create(
+            thread_id=request.thread_id,
+            assistant_id=request.assistant_id
+        )
+        
+        return {
+            "message_id": message.id,
+            "run_id": run.id,
+            "stock_info": {
+                "ticker": request.ticker,
+                "company_name": stock_info.get("longName", "N/A"),
+                "current_price": stock_info.get("currentPrice", "N/A"),
+                "market_cap": stock_info.get("marketCap", "N/A")
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/market-analyze")
 async def analyze_market(request: MarketRequest):
     try:
@@ -226,103 +249,6 @@ async def analyze_market(request: MarketRequest):
             "analysis": analysis
         }
         
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# OpenAI Assistant API 엔드포인트들
-@app.post("/threads/create")
-async def create_thread(request: ThreadCreateRequest):
-    try:
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        thread = client.beta.threads.create()
-        return {
-            "id": thread.id,
-            "created_at": thread.created_at
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/threads/{thread_id}/messages")
-async def create_message(thread_id: str, request: MessageCreateRequest):
-    try:
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        message = client.beta.threads.messages.create(
-            thread_id=thread_id,
-            role="user",
-            content=request.content
-        )
-        return {
-            "id": message.id,
-            "created_at": message.created_at,
-            "role": message.role,
-            "content": message.content
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/threads/{thread_id}/runs")
-async def create_run(thread_id: str, request: RunCreateRequest):
-    try:
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        run = client.beta.threads.runs.create(
-            thread_id=thread_id,
-            assistant_id=request.assistant_id
-        )
-        return {
-            "id": run.id,
-            "status": run.status,
-            "created_at": run.created_at
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/threads/{thread_id}/runs/{run_id}")
-async def retrieve_run(thread_id: str, run_id: str):
-    try:
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        run = client.beta.threads.runs.retrieve(
-            thread_id=thread_id,
-            run_id=run_id
-        )
-        return {
-            "id": run.id,
-            "status": run.status,
-            "last_error": run.last_error
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/threads/{thread_id}/messages")
-async def list_messages(thread_id: str):
-    try:
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        messages = client.beta.threads.messages.list(thread_id=thread_id)
-        
-        # 메시지 데이터를 직렬화 가능한 형태로 변환
-        serialized_messages = []
-        for msg in messages.data:
-            serialized_messages.append({
-                "id": msg.id,
-                "role": msg.role,
-                "content": [
-                    {
-                        "type": content.type,
-                        "text": {"value": content.text.value} if hasattr(content, 'text') else None
-                    } for content in msg.content
-                ],
-                "created_at": msg.created_at
-            })
-        
-        return {"data": serialized_messages}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.delete("/threads/{thread_id}")
-async def delete_thread(thread_id: str):
-    try:
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        result = client.beta.threads.delete(thread_id=thread_id)
-        return {"deleted": result.deleted}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

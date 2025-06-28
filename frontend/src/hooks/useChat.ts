@@ -7,7 +7,13 @@ import {
   waitForRunCompletion,
   getThreadMessages,
   convertOpenAIMessagesToAppMessages,
+  getAssistantId,
 } from "../utils/openai";
+import {
+  isStockAnalysisRequest,
+  extractStockTicker,
+  requestStockAnalysis,
+} from "../utils/stockAnalysisUtils";
 
 export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -58,6 +64,51 @@ export const useChat = () => {
       setIsTyping(true);
 
       try {
+        // 종목 분석 요청인지 확인
+        if (isStockAnalysisRequest(userMessage)) {
+          const ticker = extractStockTicker(userMessage);
+          const assistantId = getAssistantId();
+
+          if (ticker && assistantId) {
+            // 종목 분석 요청을 백엔드로 전송
+            const analysisResult = await requestStockAnalysis(
+              ticker,
+              threadId,
+              assistantId
+            );
+
+            // Run 완료 대기
+            await waitForRunCompletion(threadId, analysisResult.run_id);
+
+            // 메시지 목록 가져오기
+            const openAIMessages = await getThreadMessages(threadId);
+            const latestAssistantMessage = openAIMessages.find(
+              (msg: any) =>
+                msg.role === "assistant" &&
+                msg.created_at > Date.now() / 1000 - 60
+            );
+
+            if (
+              latestAssistantMessage &&
+              latestAssistantMessage.content[0].type === "text"
+            ) {
+              const assistantText =
+                latestAssistantMessage.content[0].text.value;
+              const assistantMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                text: assistantText,
+                isUser: false,
+                createdAt: new Date(),
+              };
+
+              addMessage(assistantMessage);
+              onSuccess?.(assistantText);
+            }
+            return;
+          }
+        }
+
+        // 일반적인 메시지 처리 (기존 로직)
         // 메시지 생성
         await addMessageToThread(threadId, userMessage);
 

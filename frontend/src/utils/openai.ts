@@ -10,6 +10,11 @@ const ASSISTANT_ID = process.env.EXPO_PUBLIC_OPENAI_ASSISTANT_ID;
 const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 
+// Assistant ID 반환
+export const getAssistantId = (): string | undefined => {
+  return ASSISTANT_ID;
+};
+
 // OpenAI API 요청을 위한 헤더
 export const getOpenAIHeaders = () => ({
   Authorization: `Bearer ${OPENAI_API_KEY}`,
