@@ -588,20 +588,23 @@ const ChatScreen = () => {
         };
         setMessages((prev) => [...prev, analysisMessage]);
 
-        // 스레드 메타데이터 업데이트 (제목과 마지막 메시지)
-        await updateThreadTitle(threadId, userMessage);
-
-        // 로컬 스레드 목록의 last_message도 업데이트
-        setThreads((prevThreads) =>
-          prevThreads.map((thread) =>
-            thread.id === threadId
-              ? {
-                  ...thread,
-                  last_message: userMessage.substring(0, 50) + "...",
-                }
-              : thread
-          )
-        );
+        // 현재 스레드의 제목이 "새로운 대화"인 경우에만 제목 업데이트
+        const currentThread = threads.find((t) => t.id === threadId);
+        if (currentThread && currentThread.title === "새로운 대화") {
+          await updateThreadTitle(threadId, userMessage);
+        } else {
+          // 제목은 업데이트하지 않고 마지막 메시지만 업데이트
+          setThreads((prevThreads) =>
+            prevThreads.map((thread) =>
+              thread.id === threadId
+                ? {
+                    ...thread,
+                    last_message: userMessage.substring(0, 50) + "...",
+                  }
+                : thread
+            )
+          );
+        }
       }
     } catch (error) {
       console.error("메시지 전송 중 오류:", error);
@@ -781,9 +784,50 @@ const ChatScreen = () => {
   const updateThreadTitle = async (threadId: string, lastMessage: string) => {
     try {
       const newTitle = await generateThreadTitle(lastMessage);
+
+      // 제목 생성에 실패한 경우 (여전히 "새로운 대화"인 경우) 업데이트하지 않음
+      if (newTitle === "새로운 대화") {
+        console.warn("제목 생성에 실패하여 기존 제목을 유지합니다.");
+        // 마지막 메시지만 업데이트
+        const updatedThreads = threads.map((thread) =>
+          thread.id === threadId
+            ? { ...thread, last_message: lastMessage.substring(0, 50) + "..." }
+            : thread
+        );
+        setThreads(updatedThreads);
+        await AsyncStorage.setItem(
+          THREADS_STORAGE_KEY,
+          JSON.stringify(updatedThreads)
+        );
+        return;
+      }
+
+      // OpenAI 스레드 메타데이터 업데이트
+      const response = await fetch(`${OPENAI_BASE_URL}/threads/${threadId}`, {
+        method: "POST",
+        headers: getOpenAIHeaders(),
+        body: JSON.stringify({
+          metadata: {
+            title: newTitle,
+            last_message: lastMessage.substring(0, 50) + "...",
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn(
+          `OpenAI 스레드 메타데이터 업데이트 실패: ${response.status}`
+        );
+      }
+
+      // 로컬 상태 업데이트
       const updatedThreads = threads.map((thread) =>
         thread.id === threadId
-          ? { ...thread, title: newTitle, last_message: lastMessage }
+          ? {
+              ...thread,
+              title: newTitle,
+              last_message: lastMessage.substring(0, 50) + "...",
+            }
           : thread
       );
       setThreads(updatedThreads);
@@ -793,6 +837,17 @@ const ChatScreen = () => {
       );
     } catch (error) {
       console.error("스레드 제목 업데이트 중 오류:", error);
+      // 오류 발생 시 마지막 메시지만 업데이트
+      const updatedThreads = threads.map((thread) =>
+        thread.id === threadId
+          ? { ...thread, last_message: lastMessage.substring(0, 50) + "..." }
+          : thread
+      );
+      setThreads(updatedThreads);
+      await AsyncStorage.setItem(
+        THREADS_STORAGE_KEY,
+        JSON.stringify(updatedThreads)
+      );
     }
   };
 
@@ -981,12 +1036,29 @@ const ChatScreen = () => {
       }
 
       const data = await response.json();
-      const title =
-        data.choices?.[0]?.message?.content?.trim() || "새로운 대화";
-      return title.replace(/^["']|["']$/g, ""); // 따옴표 제거
+      let title = data.choices?.[0]?.message?.content?.trim();
+
+      // API 응답이 없거나 비어있는 경우 간단한 제목 생성
+      if (!title) {
+        // 메시지의 첫 15자로 제목 생성
+        title = message.substring(0, 15).trim();
+        if (title.length < message.length) {
+          title += "...";
+        }
+      }
+
+      // 따옴표 제거 및 길이 제한
+      const cleanTitle = title.replace(/^["']|["']$/g, "");
+      return cleanTitle.length > 20
+        ? cleanTitle.substring(0, 17) + "..."
+        : cleanTitle;
     } catch (error) {
       console.error("제목 생성 중 오류:", error);
-      return "새로운 대화";
+      // API 오류 시 메시지의 첫 부분으로 제목 생성
+      const fallbackTitle = message.substring(0, 15).trim();
+      return fallbackTitle.length < message.length
+        ? fallbackTitle + "..."
+        : fallbackTitle;
     }
   };
 
