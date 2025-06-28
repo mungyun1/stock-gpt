@@ -59,3 +59,68 @@ export type RootStackParamList = {
   Home: undefined;
   Chat: undefined;
 };
+
+// ChatScreen에서 사용하는 추가 타입들
+export type RootTabParamList = {
+  Chat: undefined;
+  MarketNews: undefined;
+  Calendar: undefined;
+  StockList: undefined;
+  Home: undefined;
+};
+
+export interface OpenAIMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: Array<{
+    type: string;
+    text: {
+      value: string;
+    };
+  }>;
+  created_at: number;
+}
+
+export interface OpenAIThread {
+  id: string;
+  created_at: number;
+  metadata?: {
+    title?: string;
+    last_message?: string;
+  };
+}
+
+export interface OpenAIRun {
+  id: string;
+  status: "queued" | "in_progress" | "completed" | "failed";
+  last_error?: {
+    message: string;
+  };
+}
+
+export interface ChatState {
+  messages: Message[];
+  threads: Thread[];
+  threadId: string | null;
+  isLoading: boolean;
+  isTyping: boolean;
+  input: string;
+}
+
+export interface SidebarState {
+  isOpen: boolean;
+  editingThreadId: string | null;
+  editingTitle: string;
+}
+
+export interface TypingAnimationProps {
+  isVisible: boolean;
+  accentColor: string;
+}
+
+export interface MessageBubbleProps {
+  message: Message;
+  isUser: boolean;
+  colors: any;
+  onRetry?: (messageId: string) => void;
+}
