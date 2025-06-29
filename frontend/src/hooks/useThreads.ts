@@ -61,7 +61,6 @@ export const useThreads = () => {
         const existingThreadIds = threads.map((thread) => thread.id);
 
         if (existingThreadIds.length === 0) {
-          console.log("저장된 스레드가 없음, 빈 상태로 시작");
           return;
         }
 

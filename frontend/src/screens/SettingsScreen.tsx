@@ -8,7 +8,7 @@ import {
   Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useThemeColors } from "../theme/colors";
+import { useThemeColors, useTheme } from "../theme/colors";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import CommonHeader from "../components/CommonHeader";
 
@@ -79,10 +79,14 @@ const SettingItem: FC<SettingItemProps> = ({
 
 const SettingsScreen: FC<SettingsScreenProps> = ({ onBack }) => {
   const colors = useThemeColors();
+  const { themeMode, isDarkMode, setThemeMode } = useTheme();
   const [pushNotifications, setPushNotifications] = useState(true);
   const [priceAlerts, setPriceAlerts] = useState(true);
   const [newsAlerts, setNewsAlerts] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+
+  const handleDarkModeToggle = (value: boolean) => {
+    setThemeMode(value ? "dark" : "light");
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -167,11 +171,11 @@ const SettingsScreen: FC<SettingsScreenProps> = ({ onBack }) => {
                 icon={
                   <MaterialIcons name="dark-mode" size={24} color="#9E9E9E" />
                 }
-                title="다크 모드"
+                title="다크모드"
                 subtitle="어두운 테마 사용"
                 type="toggle"
-                value={darkMode}
-                onValueChange={setDarkMode}
+                value={isDarkMode}
+                onValueChange={handleDarkModeToggle}
               />
               <SettingItem
                 icon={

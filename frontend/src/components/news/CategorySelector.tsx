@@ -19,9 +19,18 @@ interface CategorySelectorProps {
 export const CategorySelector = ({
   selectedCategory,
   onCategoryChange,
+  colors,
 }: CategorySelectorProps) => {
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -33,7 +42,10 @@ export const CategorySelector = ({
             key={category.id}
             style={[
               styles.categoryButton,
-              selectedCategory === category.id && styles.categoryButtonActive,
+              selectedCategory === category.id && [
+                styles.categoryButtonActive,
+                { borderBottomColor: colors.primary },
+              ],
             ]}
             onPress={() => onCategoryChange(category.id as NewsCategory)}
             activeOpacity={0.7}
@@ -41,7 +53,11 @@ export const CategorySelector = ({
             <Text
               style={[
                 styles.categoryText,
-                selectedCategory === category.id && styles.categoryTextActive,
+                { color: colors.textSecondary },
+                selectedCategory === category.id && [
+                  styles.categoryTextActive,
+                  { color: colors.primary },
+                ],
               ]}
             >
               {category.name}
@@ -55,9 +71,7 @@ export const CategorySelector = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   scrollView: {
     flexGrow: 0,
@@ -75,16 +89,13 @@ const styles = StyleSheet.create({
   },
   categoryButtonActive: {
     borderBottomWidth: 2,
-    borderBottomColor: "#0B4619",
   },
   categoryText: {
     fontSize: 16,
     fontFamily: "Pretendard-SemiBold",
-    color: "#666666",
     textAlign: "center",
   },
   categoryTextActive: {
-    color: "#0B4619",
     fontFamily: "Pretendard-ExtraBold",
   },
 });

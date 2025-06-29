@@ -32,7 +32,15 @@ export const SkeletonNewsCard = ({ colors }: SkeletonNewsCardProps) => {
   });
 
   return (
-    <View style={styles.newsCard}>
+    <View
+      style={[
+        styles.newsCard,
+        {
+          backgroundColor: colors.cardBackground,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
       {/* 썸네일 이미지 스켈레톤 */}
       <View style={styles.thumbnailContainer}>
         <Animated.View
@@ -101,9 +109,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 20,
     marginBottom: 1,
-    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   thumbnailContainer: {
     marginRight: 12,

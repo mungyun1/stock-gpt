@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -9,13 +10,20 @@ import StockCategoryScreen from "./src/screens/StockRecommendationScreen";
 import StockListScreen from "./src/screens/StockListScreen";
 import { Ionicons } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
-import { View, ActivityIndicator, I18nManager, Platform } from "react-native";
-import { useEffect } from "react";
+import {
+  View,
+  ActivityIndicator,
+  I18nManager,
+  Platform,
+  StatusBar,
+} from "react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   useThemeColors,
   getFontFamily,
   getFontWeight,
+  ThemeProvider,
+  useTheme,
 } from "./src/theme/colors";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -126,6 +134,27 @@ function TabNavigator() {
   );
 }
 
+function AppContent() {
+  const colors = useThemeColors();
+  const { isDarkMode } = useTheme();
+
+  return (
+    <>
+      <StatusBar
+        barStyle={isDarkMode ? "light-content" : "dark-content"}
+        backgroundColor={colors.background}
+      />
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <TabNavigator />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    </>
+  );
+}
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     "Pretendard-Regular": require("./assets/fonts/Pretendard-Regular.otf"),
@@ -151,12 +180,8 @@ export default function App() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <NavigationContainer>
-          <TabNavigator />
-        </NavigationContainer>
-      </SafeAreaProvider>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }

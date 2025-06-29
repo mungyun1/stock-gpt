@@ -13,7 +13,13 @@ interface NewsCardProps {
 export const NewsCard = ({ news, onPress, colors }: NewsCardProps) => {
   return (
     <TouchableOpacity
-      style={[styles.newsCard, { backgroundColor: "#ffffff" }]}
+      style={[
+        styles.newsCard,
+        {
+          backgroundColor: colors.cardBackground,
+          borderBottomColor: colors.border,
+        },
+      ]}
       onPress={() => onPress(news.url)}
       activeOpacity={0.7}
     >
@@ -56,7 +62,6 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     marginBottom: 1,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   thumbnailContainer: {
     marginRight: 12,
@@ -74,7 +79,6 @@ const styles = StyleSheet.create({
     fontFamily: "Pretendard-SemiBold",
     lineHeight: 22,
     marginBottom: 8,
-    color: "#1a1a1a",
   },
   metaContainer: {
     flexDirection: "row",
@@ -90,17 +94,14 @@ const styles = StyleSheet.create({
   source: {
     fontSize: 13,
     fontFamily: "Pretendard-Medium",
-    color: "#666666",
   },
   dot: {
     fontSize: 13,
     marginHorizontal: 6,
-    color: "#666666",
   },
   time: {
     fontSize: 13,
     fontFamily: "Pretendard-Regular",
-    color: "#888888",
   },
   commentContainer: {
     flexDirection: "row",

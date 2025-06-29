@@ -113,11 +113,13 @@ const MarketNewsScreen = () => {
         />
 
         <ScrollView
-          style={styles.newsList}
+          style={[styles.newsList, { backgroundColor: colors.background }]}
           refreshControl={
             <RefreshControl
               refreshing={isFetching && !isFetchingNextPage}
               onRefresh={onRefresh}
+              tintColor={colors.accent}
+              colors={[colors.accent]}
             />
           }
           onScroll={({ nativeEvent }) => handleScroll(nativeEvent)}
@@ -159,7 +161,6 @@ const styles = StyleSheet.create({
   },
   newsList: {
     flex: 1,
-    backgroundColor: "#ffffff",
   },
   loadingFooter: {
     paddingVertical: 20,

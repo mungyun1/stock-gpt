@@ -77,7 +77,7 @@ const AppInfoScreen: FC<AppInfoScreenProps> = ({ onBack }) => {
           <View style={styles.logoSection}>
             <Image
               source={require("../../assets/icon.png")}
-              style={styles.appIcon}
+              style={[styles.appIcon, { tintColor: colors.textPrimary }]}
               resizeMode="contain"
             />
             <Text style={[styles.appName, { color: colors.textPrimary }]}>
