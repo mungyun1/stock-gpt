@@ -10,6 +10,10 @@ import {
   STOCK_TICKER_PATTERN,
   delay,
 } from "../utils/chatUtils";
+import {
+  isStockAnalysisRequest,
+  extractStockTicker,
+} from "../utils/stockAnalysisUtils";
 
 const BACKEND_URL = "http://localhost:8000"; // 백엔드 서버 URL
 
@@ -361,47 +365,71 @@ export const useMessageHandler = (
 
       setIsTyping(true);
 
-      const messageType = analyzeUserInput(userMessage);
-      console.log(`메시지 분석 결과: ${messageType}`);
+      // 종목 분석 요청인지 먼저 확인 (한국 주식 포함)
+      const isStockRequest = isStockAnalysisRequest(userMessage);
+      const messageType = isStockRequest
+        ? "stock"
+        : analyzeUserInput(userMessage);
+      console.log(
+        `메시지 분석 결과: ${messageType} (한국주식체크: ${isStockRequest})`
+      );
 
       let analysisResult: StockAnalysisResponse | MarketAnalysisResponse;
 
       if (messageType === "stock") {
-        const ticker = userMessage.match(STOCK_TICKER_PATTERN)?.[0] || "";
-        console.log(`주식 분석 요청 - 티커: ${ticker}`);
+        // 한국 주식 매핑을 포함한 ticker 추출
+        let ticker = extractStockTicker(userMessage);
 
-        try {
-          console.log(`${BACKEND_URL}/analyze 요청 시작`);
-          const response = await fetch(`${BACKEND_URL}/analyze`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ ticker }),
-          });
+        // 한국 주식 매핑에서 못 찾으면 기존 방식으로 시도
+        if (!ticker) {
+          ticker = userMessage.match(STOCK_TICKER_PATTERN)?.[0] || "";
+        }
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
+        console.log(
+          `주식 분석 요청 - 원문: "${userMessage}", 추출된 티커: "${ticker}"`
+        );
 
-          analysisResult = (await response.json()) as StockAnalysisResponse;
-          console.log(`주식 분석 완료 - ${ticker}:`, {
-            hasStockInfo: !!analysisResult.stock_info,
-            analysisLength: analysisResult.analysis.length,
-          });
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              text: analysisResult.analysis,
-              isUser: false,
-              id: Date.now().toString(),
-              createdAt: new Date(),
-            },
-          ]);
-        } catch (error) {
-          console.error("주식 분석 요청 실패:", error);
+        if (!ticker) {
+          console.error("티커를 추출할 수 없음");
           await sendMessageToAssistant(userMessage);
+        } else {
+          try {
+            console.log(`${BACKEND_URL}/analyze 요청 시작`);
+            const response = await fetch(`${BACKEND_URL}/analyze`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ ticker }),
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error("HTTP 오류:", response.status, errorText);
+              throw new Error(
+                `HTTP error! status: ${response.status}, message: ${errorText}`
+              );
+            }
+
+            analysisResult = (await response.json()) as StockAnalysisResponse;
+            console.log(`주식 분석 완료 - ${ticker}:`, {
+              hasStockInfo: !!analysisResult.stock_info,
+              analysisLength: analysisResult.analysis.length,
+            });
+
+            setMessages((prev) => [
+              ...prev,
+              {
+                text: analysisResult.analysis,
+                isUser: false,
+                id: Date.now().toString(),
+                createdAt: new Date(),
+              },
+            ]);
+          } catch (error) {
+            console.error("주식 분석 요청 실패:", error);
+            await sendMessageToAssistant(userMessage);
+          }
         }
       } else if (messageType === "market") {
         const marketRequest = {

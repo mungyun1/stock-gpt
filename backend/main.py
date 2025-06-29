@@ -59,6 +59,65 @@ def build_prompt_from_data(data: dict, ticker: str) -> str:
 분석 결과를 마치 애널리스트 보고서처럼 표와 요약으로 정리해 주세요.
 """
 
+def validate_stock_data(stock_info: dict, ticker: str, required_fields: list = None) -> dict:
+    """
+    yfinance에서 가져온 주식 데이터를 검증하고 정리
+    """
+    if required_fields is None:
+        required_fields = ["longName", "currentPrice", "marketCap"]
+    
+    # 기본 검증
+    if not stock_info or not isinstance(stock_info, dict):
+        raise ValueError(f"'{ticker}' 종목의 데이터를 가져올 수 없습니다.")
+    
+    # 필수 필드 검증
+    missing_fields = []
+    for field in required_fields:
+        if field not in stock_info or stock_info[field] is None:
+            missing_fields.append(field)
+    
+    if missing_fields:
+        print(f"Warning: {ticker}에서 누락된 필드들: {missing_fields}")
+    
+    # 데이터 정리 (None 값들을 "N/A"로 처리)
+    cleaned_data = {}
+    for key, value in stock_info.items():
+        if value is None or value == "":
+            cleaned_data[key] = "N/A"
+        else:
+            cleaned_data[key] = value
+    
+    return cleaned_data
+
+def safe_get_stock_info(ticker_symbol: str) -> dict:
+    """
+    안전한 yfinance 데이터 조회
+    """
+    try:
+        # ticker 검증
+        if not ticker_symbol or not isinstance(ticker_symbol, str):
+            raise ValueError("유효하지 않은 ticker symbol입니다.")
+        
+        ticker = yf.Ticker(ticker_symbol.upper())
+        stock_info = ticker.info
+        
+        # 데이터 검증
+        validated_data = validate_stock_data(stock_info, ticker_symbol)
+        
+        # 기본 정보가 있는지 확인 (회사명이나 현재가 중 하나는 있어야 함)
+        if (validated_data.get("longName") == "N/A" and 
+            validated_data.get("shortName") == "N/A" and
+            validated_data.get("currentPrice") == "N/A"):
+            raise ValueError(f"'{ticker_symbol}' 종목 정보를 찾을 수 없습니다. ticker symbol을 확인해주세요.")
+        
+        return validated_data
+        
+    except Exception as e:
+        if "404" in str(e) or "not found" in str(e).lower():
+            raise ValueError(f"'{ticker_symbol}' 종목을 찾을 수 없습니다. ticker symbol을 확인해주세요.")
+        else:
+            raise ValueError(f"데이터 조회 중 오류가 발생했습니다: {str(e)}")
+
 def get_market_data(indices: list[str], lookback_days: int) -> dict:
     market_data = {}
     
@@ -106,9 +165,8 @@ def get_market_data(indices: list[str], lookback_days: int) -> dict:
 @app.post("/analyze")
 async def analyze_stock(request: StockRequest):
     try:
-        # yfinance로 데이터 수집
-        ticker = yf.Ticker(request.ticker)
-        stock_info = ticker.info
+        # 안전한 yfinance 데이터 수집
+        stock_info = safe_get_stock_info(request.ticker)
 
         # OpenAI API를 통한 분석
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -138,15 +196,18 @@ async def analyze_stock(request: StockRequest):
             "analysis": analysis
         }
     
+    except ValueError as ve:
+        # yfinance 관련 에러 (잘못된 ticker 등)
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # 기타 서버 에러
+        raise HTTPException(status_code=500, detail=f"서버 오류: {str(e)}")
 
 @app.post("/analyze-stock-with-assistant")
 async def analyze_stock_with_assistant(request: StockAnalysisRequest):
     try:
-        # yfinance로 데이터 수집
-        ticker = yf.Ticker(request.ticker)
-        stock_info = ticker.info
+        # 안전한 yfinance 데이터 수집
+        stock_info = safe_get_stock_info(request.ticker)
         
         # 종목 데이터를 포함한 프롬프트 생성
         prompt = build_prompt_from_data(stock_info, request.ticker)
@@ -178,8 +239,12 @@ async def analyze_stock_with_assistant(request: StockAnalysisRequest):
             }
         }
         
+    except ValueError as ve:
+        # yfinance 관련 에러 (잘못된 ticker 등)
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # 기타 서버 에러
+        raise HTTPException(status_code=500, detail=f"서버 오류: {str(e)}")
 
 @app.post("/market-analyze")
 async def analyze_market(request: MarketRequest):

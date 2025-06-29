@@ -63,8 +63,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    height: 68,
+    paddingVertical: 12,
+    height: 62,
     borderBottomWidth: 0.5,
     shadowColor: "#000",
     shadowOffset: {

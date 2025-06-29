@@ -66,7 +66,7 @@ export const requestStockAnalysis = async (
 ): Promise<any> => {
   try {
     const response = await fetch(
-      "http://localhost:8001/analyze-stock-with-assistant",
+      "http://localhost:8000/analyze-stock-with-assistant",
       {
         method: "POST",
         headers: {

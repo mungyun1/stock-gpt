@@ -13,17 +13,12 @@ import {
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useThemeColors } from "../theme/colors";
-
-// 타입 임포트
 import { RootTabParamList } from "../types/chat";
-
-// 훅 임포트
 import { useChat } from "../hooks/useChat";
 import { useThreads } from "../hooks/useThreads";
 import { useSidebar } from "../hooks/useSidebar";
 import { useTypingAnimation } from "../hooks/useTypingAnimation";
 
-// 컴포넌트 임포트
 import {
   ChatHeader,
   MessageBubble,

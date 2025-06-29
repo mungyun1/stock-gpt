@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   sidebarHeader: {
     padding: 16,
-    height: 68,
+    height: 62,
     borderBottomWidth: 0.5,
     justifyContent: "center",
     shadowColor: "#000",
