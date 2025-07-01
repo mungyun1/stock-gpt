@@ -123,19 +123,32 @@ const ChatScreen = () => {
 
     const userMessage = chat.input.trim();
 
-    await chat.sendMessage(userMessage, currentThreadId, (assistantMessage) => {
-      // 성공 시 스레드 제목 업데이트
-      const currentThread = threads.threads.find(
-        (t) => t.id === currentThreadId
-      );
-      if (currentThread && currentThread.title === "새로운 대화") {
-        threads.updateThreadTitle(currentThreadId, userMessage);
-      } else {
-        // 제목은 업데이트하지 않고 마지막 메시지만 업데이트
-        threads.updateThreadTitle(currentThreadId, userMessage);
-      }
-    });
-  }, [chat, threads]);
+    await chat.sendMessage(
+      userMessage,
+      currentThreadId,
+      (assistantMessage) => {
+        // 성공 시 스레드 제목 업데이트
+        const currentThread = threads.threads.find(
+          (t) => t.id === currentThreadId
+        );
+        if (currentThread && currentThread.title === "새로운 대화") {
+          threads.updateThreadTitle(currentThreadId, userMessage);
+        } else {
+          // 제목은 업데이트하지 않고 마지막 메시지만 업데이트
+          threads.updateThreadTitle(currentThreadId, userMessage);
+        }
+
+        // thinking 애니메이션 중지
+        typing.stopThinkingAnimation();
+      },
+      undefined, // onError
+      (messageId) => {
+        // thinking 애니메이션 시작
+        typing.startThinkingAnimation(messageId, chat.updateMessage);
+      },
+      chat.updateMessage // onThinkingUpdate
+    );
+  }, [chat, threads, typing]);
 
   // 스레드 선택
   const handleThreadSelect = useCallback(

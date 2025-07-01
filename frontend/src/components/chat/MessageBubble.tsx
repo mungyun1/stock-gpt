@@ -141,7 +141,7 @@ export const MessageBubble: React.FC<ExtendedMessageBubbleProps> = ({
     }
 
     if (
-      thinkingMessages.includes(message.text) &&
+      (message.isThinking || thinkingMessages.includes(message.text)) &&
       messageOpacity &&
       interpolatedColor
     ) {

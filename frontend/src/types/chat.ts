@@ -11,6 +11,7 @@ export type Message = {
   links?: MessageLink[];
   error?: boolean;
   lastUserMessage?: string;
+  isThinking?: boolean;
 };
 
 export type Thread = {

@@ -25,6 +25,12 @@ export const useChat = () => {
     setMessages((prev) => [...prev, message]);
   }, []);
 
+  const updateMessage = useCallback((messageId: string, text: string) => {
+    setMessages((prev) =>
+      prev.map((msg) => (msg.id === messageId ? { ...msg, text } : msg))
+    );
+  }, []);
+
   const clearMessages = useCallback(() => {
     setMessages([]);
   }, []);
@@ -45,7 +51,9 @@ export const useChat = () => {
       userMessage: string,
       threadId: string,
       onSuccess?: (assistantMessage: string) => void,
-      onError?: (error: string) => void
+      onError?: (error: string) => void,
+      onThinkingStart?: (messageId: string) => void,
+      onThinkingUpdate?: (messageId: string, text: string) => void
     ) => {
       if (!userMessage.trim() || isLoading || !threadId) return;
 
@@ -62,6 +70,19 @@ export const useChat = () => {
       addMessage(newMessage);
       setIsLoading(true);
       setIsTyping(true);
+
+      // thinking 메시지 추가
+      const thinkingMessageId = (Date.now() + 1).toString();
+      const thinkingMessage: Message = {
+        id: thinkingMessageId,
+        text: "답변을 생각하고 있어요...",
+        isUser: false,
+        createdAt: new Date(),
+        isThinking: true,
+      };
+
+      addMessage(thinkingMessage);
+      onThinkingStart?.(thinkingMessageId);
 
       try {
         // 종목 분석 요청인지 확인
@@ -94,14 +115,19 @@ export const useChat = () => {
             ) {
               const assistantText =
                 latestAssistantMessage.content[0].text.value;
-              const assistantMessage: Message = {
-                id: (Date.now() + 1).toString(),
-                text: assistantText,
-                isUser: false,
-                createdAt: new Date(),
-              };
 
-              addMessage(assistantMessage);
+              // thinking 메시지를 실제 응답으로 교체
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === thinkingMessageId
+                    ? {
+                        ...msg,
+                        text: assistantText,
+                        isThinking: false,
+                      }
+                    : msg
+                )
+              );
               onSuccess?.(assistantText);
             }
             return;
@@ -130,26 +156,37 @@ export const useChat = () => {
           latestAssistantMessage.content[0].type === "text"
         ) {
           const assistantText = latestAssistantMessage.content[0].text.value;
-          const assistantMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            text: assistantText,
-            isUser: false,
-            createdAt: new Date(),
-          };
 
-          addMessage(assistantMessage);
+          // thinking 메시지를 실제 응답으로 교체
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === thinkingMessageId
+                ? {
+                    ...msg,
+                    text: assistantText,
+                    isThinking: false,
+                  }
+                : msg
+            )
+          );
           onSuccess?.(assistantText);
         }
       } catch (error) {
         console.error("메시지 전송 중 오류:", error);
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          text: "죄송합니다. 메시지 전송 중 오류가 발생했습니다. 다시 시도해주세요.",
-          isUser: false,
-          createdAt: new Date(),
-          error: true,
-        };
-        addMessage(errorMessage);
+
+        // thinking 메시지를 에러 메시지로 교체
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === thinkingMessageId
+              ? {
+                  ...msg,
+                  text: "죄송합니다. 메시지 전송 중 오류가 발생했습니다. 다시 시도해주세요.",
+                  isThinking: false,
+                  error: true,
+                }
+              : msg
+          )
+        );
         onError?.("메시지 전송 실패");
       } finally {
         setIsLoading(false);
@@ -180,6 +217,7 @@ export const useChat = () => {
     isLoading,
     isTyping,
     addMessage,
+    updateMessage,
     clearMessages,
     loadThreadMessages,
     sendMessage,
