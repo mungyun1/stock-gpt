@@ -2,23 +2,76 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-import yfinance as yf
+import finnhub  # Finnhub API
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+import time
+import random
 
-load_dotenv()
+# .env.local 파일을 우선 로드하고, 없으면 .env 파일을 로드
+load_dotenv('.env.local')
+load_dotenv()  # fallback으로 .env도 로드
+
+# 환경변수 로드 확인 (OpenAI + Finnhub)
+openai_key = os.getenv("OPENAI_API_KEY")
+finnhub_key = os.getenv("FINNHUB_API_KEY")
+
+if openai_key:
+    print(f"✅ OPENAI_API_KEY 로드됨 (길이: {len(openai_key)}자)")
+else:
+    print("❌ OPENAI_API_KEY를 찾을 수 없습니다!")
+
+if finnhub_key:
+    print(f"✅ FINNHUB_API_KEY 로드됨 (길이: {len(finnhub_key)}자)")
+else:
+    print("❌ FINNHUB_API_KEY를 찾을 수 없습니다!")
+    print("📝 https://finnhub.io 에서 무료 API 키를 발급받아 .env.local 파일에 FINNHUB_API_KEY=your_key 로 추가하세요")
+
+# Finnhub 클라이언트 초기화
+finnhub_client = None
+if finnhub_key:
+    try:
+        finnhub_client = finnhub.Client(api_key=finnhub_key)
+        print("✅ Finnhub 클라이언트 초기화 완료")
+    except Exception as e:
+        print(f"❌ Finnhub 클라이언트 초기화 실패: {e}")
+
+# Proxy 관련 환경변수 제거 (OpenAI 클라이언트 오류 방지)
+proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'ALL_PROXY', 'all_proxy']
+for var in proxy_vars:
+    if var in os.environ:
+        print(f"🔧 {var} 환경변수 제거: {os.environ[var]}")
+        del os.environ[var]
 
 app = FastAPI()
+
+# OpenAI 클라이언트와의 충돌을 방지하기 위해 requests 세션 설정을 최소화
+# requests 기본 어댑터 리셋 (라이브러리 간 충돌 방지)
+try:
+    import requests
+    # 기본 세션의 proxies 설정 제거
+    requests.Session.proxies = {}
+    print("✅ requests 기본 proxies 설정 제거 완료")
+except Exception as e:
+    print(f"⚠️ requests 설정 리셋 중 오류: {e}")
 
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8081"],
+    allow_origins=["http://localhost:8081", "http://localhost:19006", "http://localhost:19000"], # Expo 개발 서버 포트들 추가
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 요청 로깅 미들웨어 추가
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"🌐 HTTP 요청: {request.method} {request.url}")
+    response = await call_next(request)
+    print(f"📤 HTTP 응답: {response.status_code}")
+    return response
 
 class StockRequest(BaseModel):
     ticker: str
@@ -61,7 +114,7 @@ def build_prompt_from_data(data: dict, ticker: str) -> str:
 
 def validate_stock_data(stock_info: dict, ticker: str, required_fields: list = None) -> dict:
     """
-    yfinance에서 가져온 주식 데이터를 검증하고 정리
+    Finnhub API에서 가져온 주식 데이터를 검증하고 정리
     """
     if required_fields is None:
         required_fields = ["longName", "currentPrice", "marketCap"]
@@ -89,87 +142,217 @@ def validate_stock_data(stock_info: dict, ticker: str, required_fields: list = N
     
     return cleaned_data
 
-def safe_get_stock_info(ticker_symbol: str) -> dict:
+def get_stock_info(ticker_symbol: str) -> dict:
     """
-    안전한 yfinance 데이터 조회
+    Finnhub API를 사용한 주식 정보 조회 (429 오류 없는 안정적인 방법)
     """
+    if not finnhub_client:
+        raise ValueError("Finnhub API 키가 설정되지 않았습니다. .env.local 파일에 FINNHUB_API_KEY를 추가해주세요.")
+    
+    if not ticker_symbol or not isinstance(ticker_symbol, str):
+        raise ValueError("유효하지 않은 ticker symbol입니다.")
+    
     try:
-        # ticker 검증
-        if not ticker_symbol or not isinstance(ticker_symbol, str):
-            raise ValueError("유효하지 않은 ticker symbol입니다.")
+        ticker_symbol = ticker_symbol.upper()
+        print(f"📊 Finnhub API로 {ticker_symbol} 조회 중...")
         
-        ticker = yf.Ticker(ticker_symbol.upper())
-        stock_info = ticker.info
+        # 1. 실시간 주가 정보
+        quote = finnhub_client.quote(ticker_symbol)
+        current_price = quote.get('c', 0)  # current price
+        
+        if current_price == 0:
+            raise ValueError(f"'{ticker_symbol}' 종목을 찾을 수 없습니다. ticker symbol을 확인해주세요.")
+        
+        # 2. 회사 프로필 정보
+        try:
+            profile = finnhub_client.company_profile2(symbol=ticker_symbol)
+        except:
+            profile = {}
+        
+        # 3. 기본 재무 지표
+        try:
+            metrics = finnhub_client.company_basic_financials(ticker_symbol, 'all')
+            financial_metrics = metrics.get('metric', {}) if metrics else {}
+        except:
+            financial_metrics = {}
+        
+        # 4. 일관된 데이터 형식으로 매핑 (기존 호환성 유지)
+        stock_data = {
+            # 기본 정보
+            "symbol": ticker_symbol,
+            "longName": profile.get('name', ticker_symbol),
+            "shortName": profile.get('name', ticker_symbol),
+            
+            # 가격 정보
+            "currentPrice": current_price,
+            "previousClose": quote.get('pc', current_price),
+            "open": quote.get('o', current_price),
+            "dayLow": quote.get('l', current_price),
+            "dayHigh": quote.get('h', current_price),
+            
+            # 52주 고저
+            "fiftyTwoWeekLow": financial_metrics.get('52WeekLow', 'N/A'),
+            "fiftyTwoWeekHigh": financial_metrics.get('52WeekHigh', 'N/A'),
+            
+            # 재무 지표
+            "marketCap": financial_metrics.get('marketCapitalization', 'N/A'),
+            "trailingPE": financial_metrics.get('peBasicExclExtraTTM', 'N/A'),
+            "trailingEps": financial_metrics.get('epsBasicExclExtraAnnual', 'N/A'),
+            "returnOnEquity": financial_metrics.get('roeTTM', 'N/A'),
+            "debtToEquity": financial_metrics.get('totalDebt/totalEquityAnnual', 'N/A'),
+            "freeCashflow": financial_metrics.get('freeCashFlowTTM', 'N/A'),
+            
+            # 회사 정보
+            "industry": profile.get('finnhubIndustry', 'N/A'),
+            "country": profile.get('country', 'N/A'),
+            "currency": profile.get('currency', 'USD'),
+            "exchange": profile.get('exchange', 'N/A'),
+            "weburl": profile.get('weburl', 'N/A'),
+            
+            # 추가 정보
+            "logoUrl": profile.get('logo', 'N/A'),
+            "shareOutstanding": profile.get('shareOutstanding', 'N/A'),
+            "ipo": profile.get('ipo', 'N/A'),
+        }
+        
+        # 시가총액 단위 변환 (백만 달러 -> 달러)
+        if stock_data["marketCap"] != 'N/A' and isinstance(stock_data["marketCap"], (int, float)):
+            stock_data["marketCap"] = stock_data["marketCap"] * 1_000_000
         
         # 데이터 검증
-        validated_data = validate_stock_data(stock_info, ticker_symbol)
+        validated_data = validate_stock_data(stock_data, ticker_symbol)
         
-        # 기본 정보가 있는지 확인 (회사명이나 현재가 중 하나는 있어야 함)
-        if (validated_data.get("longName") == "N/A" and 
-            validated_data.get("shortName") == "N/A" and
-            validated_data.get("currentPrice") == "N/A"):
-            raise ValueError(f"'{ticker_symbol}' 종목 정보를 찾을 수 없습니다. ticker symbol을 확인해주세요.")
-        
+        print(f"✅ {ticker_symbol} Finnhub 데이터 조회 성공")
         return validated_data
         
     except Exception as e:
-        if "404" in str(e) or "not found" in str(e).lower():
+        error_str = str(e)
+        
+        # API 키 관련 오류
+        if "401" in error_str or "unauthorized" in error_str.lower():
+            raise ValueError("Finnhub API 키가 유효하지 않습니다. API 키를 확인해주세요.")
+        
+        # 종목 없음 오류
+        if "404" in error_str or "not found" in error_str.lower():
             raise ValueError(f"'{ticker_symbol}' 종목을 찾을 수 없습니다. ticker symbol을 확인해주세요.")
-        else:
-            raise ValueError(f"데이터 조회 중 오류가 발생했습니다: {str(e)}")
+        
+        # Rate limit 오류
+        if "429" in error_str or "rate limit" in error_str.lower():
+            raise ValueError("Finnhub API 호출 한도를 초과했습니다. 잠시 후 다시 시도해주세요. (무료: 60 calls/분)")
+        
+        raise ValueError(f"Finnhub API 조회 중 오류 발생: {error_str}")
+
+
 
 def get_market_data(indices: list[str], lookback_days: int) -> dict:
+    """
+    Finnhub API를 사용한 마켓 데이터 조회
+    """
+    if not finnhub_client:
+        raise ValueError("Finnhub API 키가 설정되지 않았습니다. .env.local 파일에 FINNHUB_API_KEY를 추가해주세요.")
+    
     market_data = {}
     
+    # 주요 지수 데이터 조회
     for index in indices:
         try:
-            ticker = yf.Ticker(index)
-            info = ticker.info
-            hist = ticker.history(period=f"{lookback_days}d")
+            print(f"📈 Finnhub로 {index} 마켓 데이터 조회 중...")
+            quote = finnhub_client.quote(index)
+            current_price = quote.get('c', 0)
+            previous_close = quote.get('pc', 0)
             
-            market_data[index] = {
-                "name": info.get("shortName", index),
-                "current_price": info.get("regularMarketPrice", 0),
-                "change_percent": info.get("regularMarketChangePercent", 0),
-                "previous_close": info.get("regularMarketPreviousClose", 0),
-                "volume": info.get("regularMarketVolume", 0),
-                "price_history": hist["Close"].tolist() if not hist.empty else [],
-                "volume_history": hist["Volume"].tolist() if not hist.empty else []
-            }
+            if current_price > 0:
+                change = current_price - previous_close
+                change_percent = (change / previous_close * 100) if previous_close > 0 else 0
+                
+                market_data[index] = {
+                    "name": index,
+                    "current_price": current_price,
+                    "change_percent": change_percent,
+                    "previous_close": previous_close,
+                    "change": change,
+                    "volume": quote.get('v', 0),
+                    "day_high": quote.get('h', current_price),
+                    "day_low": quote.get('l', current_price),
+                    "price_history": [],  # 히스토리 데이터는 별도 API 필요
+                    "volume_history": []
+                }
+                print(f"✅ {index} Finnhub 데이터 조회 성공")
+            else:
+                print(f"⚠️ {index} 데이터가 없습니다")
+                market_data[index] = {"error": f"{index} 데이터를 찾을 수 없습니다"}
+                
         except Exception as e:
-            print(f"Error fetching data for {index}: {str(e)}")
-            market_data[index] = {"error": f"데이터 조회 실패: {str(e)}"}
+            print(f"❌ {index} Finnhub 조회 실패: {str(e)[:100]}...")
+            market_data[index] = {"error": f"데이터 조회 실패: {str(e)[:100]}"}
     
-    # 미국 10년 국채 수익률
+    # 미국 10년 국채 수익률 (^TNX)
     try:
-        treasury = yf.Ticker("^TNX")
-        market_data["US10Y"] = {
-            "rate": treasury.info.get("regularMarketPrice", 0),
-            "change": treasury.info.get("regularMarketChange", 0)
-        }
+        print(f"📊 Finnhub로 미국 10년 국채 수익률 조회 중...")
+        quote = finnhub_client.quote("^TNX")
+        current_rate = quote.get('c', 0)
+        previous_rate = quote.get('pc', 0)
+        
+        if current_rate > 0:
+            market_data["US10Y"] = {
+                "rate": current_rate,
+                "change": current_rate - previous_rate
+            }
+            print(f"✅ 미국 10년 국채 수익률 Finnhub 조회 성공")
+        else:
+            market_data["US10Y"] = {"error": "미국 10년 국채 수익률 데이터 없음"}
+            
     except Exception as e:
-        market_data["US10Y"] = {"error": f"금리 데이터 조회 실패: {str(e)}"}
+        print(f"❌ 미국 10년 국채 수익률 조회 실패: {str(e)[:100]}...")
+        market_data["US10Y"] = {"error": f"금리 데이터 조회 실패: {str(e)[:100]}"}
     
     # USD/KRW 환율
     try:
-        usdkrw = yf.Ticker("KRW=X")
-        market_data["USDKRW"] = {
-            "rate": usdkrw.info.get("regularMarketPrice", 0),
-            "change": usdkrw.info.get("regularMarketChange", 0)
-        }
+        print(f"💱 Finnhub로 USD/KRW 환율 조회 중...")
+        # Finnhub에서는 여러 형식 시도
+        for symbol in ["USDKRW", "USD/KRW"]:
+            try:
+                quote = finnhub_client.quote(symbol)
+                current_rate = quote.get('c', 0)
+                previous_rate = quote.get('pc', 0)
+                
+                if current_rate > 0:
+                    market_data["USDKRW"] = {
+                        "rate": current_rate,
+                        "change": current_rate - previous_rate
+                    }
+                    print(f"✅ USD/KRW 환율 Finnhub 조회 성공 ({symbol})")
+                    break
+            except:
+                continue
+        else:
+            market_data["USDKRW"] = {"error": "USD/KRW 환율 데이터 없음"}
+            
     except Exception as e:
-        market_data["USDKRW"] = {"error": f"환율 데이터 조회 실패: {str(e)}"}
+        print(f"❌ USD/KRW 환율 조회 실패: {str(e)[:100]}...")
+        market_data["USDKRW"] = {"error": f"환율 데이터 조회 실패: {str(e)[:100]}"}
     
     return market_data
 
 @app.post("/analyze")
 async def analyze_stock(request: StockRequest):
+    print(f"🚀 /analyze 엔드포인트 호출됨!")
+    print(f"📊 요청 데이터: ticker={request.ticker}")
     try:
-        # 안전한 yfinance 데이터 수집
-        stock_info = safe_get_stock_info(request.ticker)
+        # Finnhub API로 주식 데이터 수집
+        stock_info = get_stock_info(request.ticker)
 
         # OpenAI API를 통한 분석
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
+        
+        # 명시적으로 필요한 매개변수만 전달
+        client = OpenAI(
+            api_key=api_key,
+            timeout=30.0,
+            max_retries=3
+        )
         
         prompt = build_prompt_from_data(stock_info, request.ticker)
         
@@ -197,7 +380,7 @@ async def analyze_stock(request: StockRequest):
         }
     
     except ValueError as ve:
-        # yfinance 관련 에러 (잘못된 ticker 등)
+        # Finnhub API 관련 에러 (잘못된 ticker 등)
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         # 기타 서버 에러
@@ -205,15 +388,26 @@ async def analyze_stock(request: StockRequest):
 
 @app.post("/analyze-stock-with-assistant")
 async def analyze_stock_with_assistant(request: StockAnalysisRequest):
+    print(f"🚀 /analyze-stock-with-assistant 엔드포인트 호출됨!")
+    print(f"📊 요청 데이터: ticker={request.ticker}, thread_id={request.thread_id}, assistant_id={request.assistant_id}")
     try:
-        # 안전한 yfinance 데이터 수집
-        stock_info = safe_get_stock_info(request.ticker)
+        # Finnhub API로 주식 데이터 수집
+        stock_info = get_stock_info(request.ticker)
         
         # 종목 데이터를 포함한 프롬프트 생성
         prompt = build_prompt_from_data(stock_info, request.ticker)
         
         # OpenAI Assistant API 클라이언트 생성
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
+        
+        # OpenAI 클라이언트 생성 (최신 SDK는 자동으로 v2 사용)
+        client = OpenAI(
+            api_key=api_key,
+            timeout=30.0,
+            max_retries=3
+        )
         
         # 스레드에 메시지 추가
         message = client.beta.threads.messages.create(
@@ -240,7 +434,7 @@ async def analyze_stock_with_assistant(request: StockAnalysisRequest):
         }
         
     except ValueError as ve:
-        # yfinance 관련 에러 (잘못된 ticker 등)
+        # Finnhub API 관련 에러 (잘못된 ticker 등)
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         # 기타 서버 에러
@@ -249,7 +443,7 @@ async def analyze_stock_with_assistant(request: StockAnalysisRequest):
 @app.post("/market-analyze")
 async def analyze_market(request: MarketRequest):
     try:
-        # yfinance를 통해 시장 데이터 수집
+        # Finnhub API를 통해 시장 데이터 수집
         market_data = get_market_data(request.indices, request.lookback_days or 30)
         
         # 프롬프트 생성
@@ -289,7 +483,16 @@ async def analyze_market(request: MarketRequest):
 전문가 리포트 형식으로 작성해주세요.
 """
 
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
+        
+        # 명시적으로 필요한 매개변수만 전달
+        client = OpenAI(
+            api_key=api_key,
+            timeout=30.0,
+            max_retries=3
+        )
         completion = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -320,7 +523,16 @@ async def analyze_market(request: MarketRequest):
 @app.post("/generate-title")
 async def generate_title(request: ThreadTitleRequest):
     try:
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
+        
+        # 명시적으로 필요한 매개변수만 전달
+        client = OpenAI(
+            api_key=api_key,
+            timeout=30.0,
+            max_retries=3
+        )
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -341,6 +553,7 @@ async def generate_title(request: ThreadTitleRequest):
         return {"title": title}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -312,6 +312,9 @@ export const useMessageHandler = (
     const userMessage = input.trim();
     setInput("");
 
+    console.log("🔥 handleSend 시작:", userMessage);
+    console.log("🔥 현재 threadId:", threadId);
+
     try {
       if (!threadId) {
         // 새로운 대화 스레드가 있는지 확인
@@ -367,12 +370,13 @@ export const useMessageHandler = (
 
       // 종목 분석 요청인지 먼저 확인 (한국 주식 포함)
       const isStockRequest = isStockAnalysisRequest(userMessage);
-      const messageType = isStockRequest
-        ? "stock"
-        : analyzeUserInput(userMessage);
+      const messageType = "stock"; // 임시: 모든 메시지를 주식으로 처리
       console.log(
-        `메시지 분석 결과: ${messageType} (한국주식체크: ${isStockRequest})`
+        `🔍 메시지 분석 결과: ${messageType} (원래결과: ${
+          isStockRequest ? "stock" : "other"
+        })`
       );
+      console.log(`📝 사용자 메시지: "${userMessage}"`);
 
       let analysisResult: StockAnalysisResponse | MarketAnalysisResponse;
 
@@ -385,8 +389,13 @@ export const useMessageHandler = (
           ticker = userMessage.match(STOCK_TICKER_PATTERN)?.[0] || "";
         }
 
+        // 임시: ticker가 없으면 AAPL로 강제 설정
+        if (!ticker) {
+          ticker = "AAPL";
+        }
+
         console.log(
-          `주식 분석 요청 - 원문: "${userMessage}", 추출된 티커: "${ticker}"`
+          `📊 주식 분석 요청 - 원문: "${userMessage}", 추출된 티커: "${ticker}"`
         );
 
         if (!ticker) {
@@ -394,14 +403,30 @@ export const useMessageHandler = (
           await sendMessageToAssistant(userMessage);
         } else {
           try {
-            console.log(`${BACKEND_URL}/analyze 요청 시작`);
-            const response = await fetch(`${BACKEND_URL}/analyze`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ ticker }),
-            });
+            // Assistant와 함께 주식 분석 처리
+            console.log(
+              `${BACKEND_URL}/analyze-stock-with-assistant 요청 시작`
+            );
+            const ASSISTANT_ID = process.env.EXPO_PUBLIC_OPENAI_ASSISTANT_ID;
+
+            if (!threadId || !ASSISTANT_ID) {
+              throw new Error("스레드 ID 또는 어시스턴트 ID가 없음");
+            }
+
+            const response = await fetch(
+              `${BACKEND_URL}/analyze-stock-with-assistant`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  ticker,
+                  thread_id: threadId,
+                  assistant_id: ASSISTANT_ID,
+                }),
+              }
+            );
 
             if (!response.ok) {
               const errorText = await response.text();
@@ -411,21 +436,86 @@ export const useMessageHandler = (
               );
             }
 
-            analysisResult = (await response.json()) as StockAnalysisResponse;
-            console.log(`주식 분석 완료 - ${ticker}:`, {
-              hasStockInfo: !!analysisResult.stock_info,
-              analysisLength: analysisResult.analysis.length,
-            });
+            const result = await response.json();
+            console.log(`주식 분석 요청 완료 - ${ticker}:`, result);
 
+            // 백엔드에서 스레드에 메시지를 추가하고 Assistant를 실행했으므로
+            // 일반적인 Assistant 응답 처리를 위해 sendMessageToAssistant 호출
+            // 하지만 메시지는 이미 추가되었으므로 응답만 기다림
+
+            // 실행 상태 확인 및 응답 처리
+            let streamingMessageId = Date.now().toString();
             setMessages((prev) => [
               ...prev,
               {
-                text: analysisResult.analysis,
+                text: "답변을 생성하고 있어요...",
                 isUser: false,
-                id: Date.now().toString(),
+                id: streamingMessageId,
                 createdAt: new Date(),
               },
             ]);
+
+            // 생각하는 애니메이션 시작
+            startThinkingAnimation(streamingMessageId, setMessages);
+
+            // Run 상태 확인 (기존 sendMessageToAssistant 로직 복사)
+            let runStatus = await openai.beta.threads.runs.retrieve(
+              result.run_id,
+              {
+                thread_id: threadId,
+              }
+            );
+
+            let retryCount = 0;
+            const maxStatusRetries = 30;
+
+            while (
+              runStatus.status !== "completed" &&
+              runStatus.status !== "failed" &&
+              runStatus.status !== "expired" &&
+              retryCount < maxStatusRetries
+            ) {
+              await delay(1000);
+              runStatus = await openai.beta.threads.runs.retrieve(
+                result.run_id,
+                {
+                  thread_id: threadId,
+                }
+              );
+              retryCount++;
+            }
+
+            if (runStatus.status === "completed") {
+              // 응답 메시지 가져오기
+              const messages = await openai.beta.threads.messages.list(
+                threadId
+              );
+              const assistantMessage = messages.data[0];
+
+              if (assistantMessage && assistantMessage.role === "assistant") {
+                const content = assistantMessage.content[0];
+                if (content.type === "text") {
+                  stopThinkingAnimation();
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === streamingMessageId
+                        ? { ...msg, text: content.text.value }
+                        : msg
+                    )
+                  );
+                }
+              }
+            } else {
+              console.error("Run 실패:", runStatus.status);
+              stopThinkingAnimation();
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === streamingMessageId
+                    ? { ...msg, text: "분석 중 오류가 발생했습니다." }
+                    : msg
+                )
+              );
+            }
           } catch (error) {
             console.error("주식 분석 요청 실패:", error);
             await sendMessageToAssistant(userMessage);

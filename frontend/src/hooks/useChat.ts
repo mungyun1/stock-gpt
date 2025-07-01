@@ -85,8 +85,13 @@ export const useChat = () => {
       onThinkingStart?.(thinkingMessageId);
 
       try {
+        console.log("🚀 useChat sendMessage 시작:", userMessage);
+
         // 종목 분석 요청인지 확인
-        if (isStockAnalysisRequest(userMessage)) {
+        const isStockRequest = isStockAnalysisRequest(userMessage);
+        console.log("📊 주식 분석 요청 여부:", isStockRequest);
+
+        if (isStockRequest) {
           const ticker = extractStockTicker(userMessage);
           const assistantId = getAssistantId();
 

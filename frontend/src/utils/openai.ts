@@ -9,6 +9,7 @@ import {
 const ASSISTANT_ID = process.env.EXPO_PUBLIC_OPENAI_ASSISTANT_ID;
 const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
+const BACKEND_BASE_URL = "http://localhost:8000"; // 백엔드 API 추가
 
 // Assistant ID 반환
 export const getAssistantId = (): string | undefined => {
@@ -276,4 +277,86 @@ export const convertOpenAIThreadToAppThread = (
     created_at: new Date(openAIThread.created_at * 1000),
     last_message: lastMessage,
   };
+};
+
+// 주식 관련 키워드 감지
+export const isStockRelatedMessage = (message: string): string | null => {
+  const stockKeywords = [
+    "주식",
+    "종목",
+    "투자",
+    "매수",
+    "매도",
+    "분석",
+    "티커",
+    "stock",
+    "ticker",
+    "삼성전자",
+    "애플",
+    "AAPL",
+    "TSLA",
+    "MSFT",
+    "GOOGL",
+    "NVDA",
+    "KRW",
+    "USD",
+    "환율",
+    "시가총액",
+    "PER",
+    "EPS",
+    "ROE",
+  ];
+
+  // 티커 패턴 (예: AAPL, TSLA, 005930.KS)
+  const tickerPattern = /\b[A-Z]{2,5}(?:\.[A-Z]{2})?\b/g;
+  const koreanStockPattern = /\b\d{6}\.KS\b/g;
+
+  // 티커 패턴 매치
+  const tickerMatch = message.match(tickerPattern);
+  const koreanStockMatch = message.match(koreanStockPattern);
+
+  if (tickerMatch) return tickerMatch[0];
+  if (koreanStockMatch) return koreanStockMatch[0];
+
+  // 키워드 기반 매치
+  for (const keyword of stockKeywords) {
+    if (message.toLowerCase().includes(keyword.toLowerCase())) {
+      // 간단한 티커 추출 시도
+      const words = message.split(/\s+/);
+      for (const word of words) {
+        if (/^[A-Z]{2,5}$/.test(word)) return word;
+        if (/^\d{6}\.KS$/.test(word)) return word;
+      }
+      return "AAPL"; // 기본값
+    }
+  }
+
+  return null;
+};
+
+// 백엔드를 통한 주식 분석
+export const analyzeStockWithBackend = async (
+  threadId: string,
+  ticker: string
+): Promise<{ messageId: string; runId: string }> => {
+  const response = await fetch(
+    `${BACKEND_BASE_URL}/analyze-stock-with-assistant`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ticker: ticker,
+        thread_id: threadId,
+        assistant_id: ASSISTANT_ID!,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Backend analysis failed: ${response.status}`);
+  }
+
+  return await response.json();
 };
