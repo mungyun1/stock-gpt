@@ -38,7 +38,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
         <Image
           source={require("../../../assets/title.png")}
-          style={[styles.headerTitle, { tintColor: colors.textPrimary }]}
+          style={[styles.headerTitle, { tintColor: colors.primary }]}
           resizeMode="contain"
         />
 

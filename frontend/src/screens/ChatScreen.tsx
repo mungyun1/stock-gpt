@@ -216,7 +216,7 @@ const ChatScreen = () => {
       {/* Background Logo */}
       <Image
         source={require("../../assets/icon.png")}
-        style={[styles.backgroundLogo, { tintColor: colors.textPrimary }]}
+        style={[styles.backgroundLogo, { tintColor: colors.primary }]}
         resizeMode="contain"
       />
 

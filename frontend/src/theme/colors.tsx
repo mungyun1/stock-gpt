@@ -102,6 +102,8 @@ export const useThemeColors = () => {
     messageAI: isDarkMode ? "#252A3C" : "#F8F9FA",
     // 주요 색상
     primary: isDarkMode ? "#16A34A" : "#0B4619",
+    // 다크모드 여부
+    isDarkMode,
   };
 };
 
