@@ -6,16 +6,21 @@ import finnhub  # Finnhub API
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
-import time
-import random
+import json
+from datetime import datetime
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from pymongo import MongoClient
 
 # .env.local 파일을 우선 로드하고, 없으면 .env 파일을 로드
 load_dotenv('.env.local')
 load_dotenv()  # fallback으로 .env도 로드
 
-# 환경변수 로드 확인 (OpenAI + Finnhub)
+# 환경변수 로드 확인 (OpenAI + Finnhub + MongoDB)
 openai_key = os.getenv("OPENAI_API_KEY")
 finnhub_key = os.getenv("FINNHUB_API_KEY")
+MONGODB_URI = os.getenv("MONGODB_URI")
+MONGODB_DB = os.getenv("MONGODB_DB", "stockgpt")
 
 if openai_key:
     print(f"✅ OPENAI_API_KEY 로드됨 (길이: {len(openai_key)}자)")
@@ -27,6 +32,16 @@ if finnhub_key:
 else:
     print("❌ FINNHUB_API_KEY를 찾을 수 없습니다!")
     print("📝 https://finnhub.io 에서 무료 API 키를 발급받아 .env.local 파일에 FINNHUB_API_KEY=your_key 로 추가하세요")
+
+if MONGODB_URI:
+    print(f"✅ MONGODB_URI 로드됨: {MONGODB_URI}")
+else:
+    print("❌ MONGODB_URI를 찾을 수 없습니다! .env.local 파일을 확인하세요.")
+
+# MongoDB 클라이언트 초기화
+mongo_client = MongoClient(MONGODB_URI)
+mongo_db = mongo_client[MONGODB_DB]
+mongo_col = mongo_db["stock_recommendations"]
 
 # Finnhub 클라이언트 초기화
 finnhub_client = None
@@ -88,6 +103,9 @@ class StockAnalysisRequest(BaseModel):
     ticker: str
     thread_id: str
     assistant_id: str
+
+class StockRecommendationRequest(BaseModel):
+    category: str
 
 def build_prompt_from_data(data: dict, ticker: str) -> str:
     return f"""
@@ -554,7 +572,245 @@ async def generate_title(request: ThreadTitleRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def get_recommendation_prompt(category: str) -> str:
+    """카테고리별 추천 종목 생성 프롬프트"""
+    category_prompts = {
+        "growth": """
+당신은 성장주 투자 전문가입니다. 
+미국 주식시장에서 다음 조건을 만족하는 성장주 5개를 추천해주세요:
+
+조건:
+- 시가총액 10억 달러 이상
+- 최근 3년간 매출 성장률 20% 이상
+- 혁신적인 기술이나 비즈니스 모델 보유
+- 강력한 경쟁우위와 시장 지배력
+- 건전한 재무상태
+
+각 종목에 대해 다음 정보를 제공해주세요:
+1. 티커 심볼
+2. 회사명
+3. 현재 주가 (Finnhub API로 확인)
+4. 추천 이유 (구체적인 근거 포함)
+
+JSON 형식으로 응답해주세요:
+{
+  "recommendations": [
+    {
+      "ticker": "AAPL",
+      "company_name": "Apple Inc.",
+      "current_price": 150.00,
+      "recommendation_reason": "강력한 브랜드 파워와 생태계..."
+    }
+  ]
+}
+""",
+        "value": """
+당신은 가치주 투자 전문가입니다.
+미국 주식시장에서 다음 조건을 만족하는 가치주 5개를 추천해주세요:
+
+조건:
+- PER 15 이하
+- PBR 1.5 이하
+- 안정적인 배당률
+- 강력한 현금흐름
+- 낮은 부채비율
+
+각 종목에 대해 다음 정보를 제공해주세요:
+1. 티커 심볼
+2. 회사명
+3. 현재 주가 (Finnhub API로 확인)
+4. 추천 이유 (구체적인 근거 포함)
+
+JSON 형식으로 응답해주세요.
+""",
+        "dividend": """
+당신은 배당주 투자 전문가입니다.
+미국 주식시장에서 다음 조건을 만족하는 배당주 5개를 추천해주세요:
+
+조건:
+- 배당수익률 3% 이상
+- 배당 성장률 5% 이상
+- 배당 지급 안정성
+- 강력한 현금흐름
+- 낮은 부채비율
+
+각 종목에 대해 다음 정보를 제공해주세요:
+1. 티커 심볼
+2. 회사명
+3. 현재 주가 (Finnhub API로 확인)
+4. 추천 이유 (구체적인 근거 포함)
+
+JSON 형식으로 응답해주세요.
+""",
+        "tech": """
+당신은 기술주 투자 전문가입니다.
+미국 주식시장에서 다음 조건을 만족하는 기술주 5개를 추천해주세요:
+
+조건:
+- 혁신적인 기술 보유
+- 강력한 시장 지배력
+- 높은 수익성
+- 지속적인 R&D 투자
+- 글로벌 확장 가능성
+
+각 종목에 대해 다음 정보를 제공해주세요:
+1. 티커 심볼
+2. 회사명
+3. 현재 주가 (Finnhub API로 확인)
+4. 추천 이유 (구체적인 근거 포함)
+
+JSON 형식으로 응답해주세요.
+""",
+        "defensive": """
+당신은 방어주 투자 전문가입니다.
+미국 주식시장에서 다음 조건을 만족하는 방어주 5개를 추천해주세요:
+
+조건:
+- 안정적인 수익
+- 낮은 변동성
+- 필수 소비재 또는 유틸리티
+- 강력한 현금흐름
+- 경제 침체기에도 안정적
+
+각 종목에 대해 다음 정보를 제공해주세요:
+1. 티커 심볼
+2. 회사명
+3. 현재 주가 (Finnhub API로 확인)
+4. 추천 이유 (구체적인 근거 포함)
+
+JSON 형식으로 응답해주세요.
+"""
+    }
+    
+    return category_prompts.get(category, category_prompts["growth"])
+
+def generate_stock_recommendations(category: str) -> list:
+    try:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
+        client = OpenAI(api_key=api_key, timeout=60.0, max_retries=3)
+        prompt = get_recommendation_prompt(category)
+        completion = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "당신은 워렌 버핏 스타일의 주식 투자 전문가입니다. "
+                        "각 종목의 추천 이유는 최소 200자 이상, 다음 항목을 반드시 포함해 작성하세요:\n"
+                        "- 기업의 핵심 사업/제품/서비스\n"
+                        "- 최근 실적 및 성장성(매출, 이익, 시장점유율 등)\n"
+                        "- 재무 건전성(부채비율, 현금흐름 등)\n"
+                        "- 산업 내 경쟁력 및 시장 전망\n"
+                        "- 리스크 요인 및 투자 시 유의점\n"
+                        "- 왜 이 시점에 매수/관심이 필요한지\n"
+                        "각 항목을 구체적으로 근거와 함께 서술하고, JSON 형식으로 응답하세요."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.3
+        )
+        response_text = completion.choices[0].message.content
+        try:
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                json_text = response_text[json_start:json_end].strip()
+            else:
+                json_text = response_text.strip()
+            data = json.loads(json_text)
+            if isinstance(data, dict):
+                recommendations = data.get("recommendations", [])
+            elif isinstance(data, list):
+                recommendations = data
+            else:
+                recommendations = []
+            for rec in recommendations:
+                try:
+                    stock_info = get_stock_info(rec["ticker"])
+                    rec["current_price"] = stock_info.get("currentPrice", rec.get("current_price", 0))
+                    rec["company_name"] = stock_info.get("longName", rec.get("company_name", ""))
+                except Exception as e:
+                    print(f"Warning: {rec['ticker']} 주가 업데이트 실패: {e}")
+            return recommendations
+        except json.JSONDecodeError as e:
+            print(f"JSON 파싱 오류: {e}")
+            print(f"응답 텍스트: {response_text}")
+            return []
+    except Exception as e:
+        print(f"추천 종목 생성 오류: {e}")
+        return []
+
+def save_recommendations_to_mongo(category: str, recommendations: list):
+    doc = {
+        "category": category,
+        "updated_at": datetime.now(),
+        "recommendations": recommendations
+    }
+    mongo_col.replace_one({"category": category}, doc, upsert=True)
+
+def get_recommendations_from_mongo(category: str):
+    doc = mongo_col.find_one({"category": category})
+    if not doc:
+        return None
+    return doc
+
+def update_all_recommendations():
+    categories = ["tech", "growth", "value", "dividend", "defensive"]
+    print("🕛 매일 자동 업데이트 시작...")
+    for category in categories:
+        try:
+            print(f"🔄 {category} 카테고리 추천 종목 업데이트 중...")
+            recs = generate_stock_recommendations(category)
+            save_recommendations_to_mongo(category, recs)
+            print(f"✅ {category} 카테고리 추천 종목 업데이트 완료")
+        except Exception as e:
+            print(f"❌ {category} 카테고리 업데이트 실패: {e}")
+    print("✅ 매일 자동 업데이트 완료!")
+
+def start_scheduler():
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(
+        update_all_recommendations,
+        CronTrigger(hour=0, minute=0),  # 매일 오전 12시
+        id='daily_recommendations_update',
+        name='매일 추천 종목 업데이트',
+        replace_existing=True
+    )
+    scheduler.add_job(
+        update_all_recommendations,
+        'date',  # 서버 시작 시 즉시 실행
+        id='initial_recommendations_update',
+        name='초기 추천 종목 업데이트'
+    )
+    scheduler.start()
+    print("📅 스케줄러 시작됨 - 매일 오전 12시에 추천 종목 자동 업데이트")
+
+@app.get("/stock-recommendations/{category}")
+async def get_stock_recommendations(category: str):
+    doc = get_recommendations_from_mongo(category)
+    if not doc:
+        raise HTTPException(404, f"{category} 카테고리의 추천 종목을 찾을 수 없습니다. 오전 12시에 자동으로 업데이트됩니다.")
+    return {
+        "category": doc["category"],
+        "recommendations": doc["recommendations"],
+        "updated_at": doc["updated_at"]
+    }
+
+@app.post("/force-update-recommendations")
+async def force_update_recommendations():
+    try:
+        update_all_recommendations()
+        return {"message": "모든 추천 종목이 성공적으로 업데이트되었습니다."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"수동 업데이트 실패: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
+    start_scheduler()
     uvicorn.run(app, host="0.0.0.0", port=8000)
