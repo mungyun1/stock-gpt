@@ -12,10 +12,30 @@ const StockRecommendationScreen: React.FC = () => {
   const {
     selectedCategory,
     expandedStock,
+    recommendations,
+    loading,
+    error,
+    updatedAt,
     handleCategorySelect,
     handleBackToCategories,
     handleStockPress,
   } = useStockRecommendation();
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return "정보 없음";
+    let d;
+    try {
+      d = typeof dateStr === "string" ? new Date(dateStr) : dateStr;
+    } catch {
+      return "정보 없음";
+    }
+    if (!d || isNaN(d.getTime())) return "정보 없음";
+    return d.toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -52,9 +72,13 @@ const StockRecommendationScreen: React.FC = () => {
           ) : (
             <StockList
               category={selectedCategory}
+              recommendations={recommendations}
               expandedStock={expandedStock}
+              loading={loading}
+              error={error}
               onBackPress={handleBackToCategories}
               onStockPress={handleStockPress}
+              updatedAt={formatDate(updatedAt)}
             />
           )}
         </ScrollView>

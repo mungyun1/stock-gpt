@@ -1,8 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
-import { StockRecommendation } from "../../types/stock";
+import { StockRecommendation } from "../../utils/stockUtils";
 import { useThemeColors } from "../../theme/colors";
-import { calculatePotentialGain } from "../../utils/stockUtils";
 
 interface QuickStatsProps {
   stock: StockRecommendation;
@@ -10,10 +9,6 @@ interface QuickStatsProps {
 
 const QuickStats: React.FC<QuickStatsProps> = ({ stock }) => {
   const colors = useThemeColors();
-  const potentialGain = calculatePotentialGain(
-    stock.currentPrice,
-    stock.targetPrice
-  );
 
   return (
     <View
@@ -21,15 +16,15 @@ const QuickStats: React.FC<QuickStatsProps> = ({ stock }) => {
     >
       <View style={styles.quickStat}>
         <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>
-          목표가
+          업데이트
         </Text>
         <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>
-          ${stock.targetPrice.toFixed(2)}
+          {new Date(stock.updated_at).toLocaleDateString("ko-KR")}
         </Text>
       </View>
       <View style={styles.quickStat}>
         <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>
-          상승여력
+          추천 이유
         </Text>
         <Text
           style={[
@@ -37,15 +32,17 @@ const QuickStats: React.FC<QuickStatsProps> = ({ stock }) => {
             { color: colors.isDarkMode ? "#4ADE80" : "#16A34A" },
           ]}
         >
-          +{potentialGain.toFixed(1)}%
+          {stock.recommendation_reason.length > 20
+            ? stock.recommendation_reason.substring(0, 20) + "..."
+            : stock.recommendation_reason}
         </Text>
       </View>
       <View style={styles.quickStat}>
         <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>
-          PER
+          현재가
         </Text>
         <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>
-          {stock.peRatio.toFixed(1)}
+          ${stock.current_price.toFixed(2)}
         </Text>
       </View>
     </View>

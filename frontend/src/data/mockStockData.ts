@@ -2,10 +2,10 @@ import { StockCategory } from "../types/stock";
 
 export const mockStockCategories: StockCategory[] = [
   {
-    id: "semiconductor",
-    name: "반도체",
-    description: "메모리와 시스템 반도체",
-    icon: "💾",
+    id: "tech",
+    name: "기술주",
+    description: "혁신적인 기술과 높은 성장성",
+    icon: "💻",
     stocks: [
       {
         id: "1",
@@ -90,10 +90,10 @@ export const mockStockCategories: StockCategory[] = [
     ],
   },
   {
-    id: "ai",
-    name: "AI",
-    description: "인공지능 기술 선도도",
-    icon: "🤖",
+    id: "growth",
+    name: "성장주",
+    description: "높은 성장률과 혁신적인 비즈니스 모델",
+    icon: "📈",
     stocks: [
       {
         id: "6",
@@ -178,10 +178,10 @@ export const mockStockCategories: StockCategory[] = [
     ],
   },
   {
-    id: "bio_pharma",
-    name: "바이오/제약",
-    description: "바이오와 제약",
-    icon: "🧬",
+    id: "value",
+    name: "가치주",
+    description: "안정적인 재무와 합리적인 밸류에이션",
+    icon: "💰",
     stocks: [
       {
         id: "11",
@@ -266,10 +266,10 @@ export const mockStockCategories: StockCategory[] = [
     ],
   },
   {
-    id: "electric_vehicle",
-    name: "전기차",
-    description: "전기차와 배터리 관련",
-    icon: "🔋",
+    id: "dividend",
+    name: "배당주",
+    description: "안정적인 배당과 현금흐름",
+    icon: "💵",
     stocks: [
       {
         id: "16",
@@ -354,10 +354,10 @@ export const mockStockCategories: StockCategory[] = [
     ],
   },
   {
-    id: "renewable_energy",
-    name: "신재생에너지",
-    description: "태양광, 풍력 등 청정 에너지",
-    icon: "🌱",
+    id: "defensive",
+    name: "방어주",
+    description: "경기 침체기에도 안정적인 수익",
+    icon: "🛡️",
     stocks: [
       {
         id: "21",

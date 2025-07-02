@@ -1,5 +1,3 @@
-import { StockRecommendation } from "../types/stock";
-
 // 카테고리별 색상 매핑
 export const getCategoryColor = (categoryId: string): string => {
   const colorMap: { [key: string]: string } = {
@@ -97,5 +95,41 @@ export const getChangeBackgroundColor = (
     return isDarkMode ? "#1B4332" : "#DCFCE7";
   } else {
     return isDarkMode ? "#450A0A" : "#FEE2E2";
+  }
+};
+
+const API_BASE_URL = "http://localhost:8000";
+
+export interface StockRecommendation {
+  ticker: string;
+  company_name: string;
+  current_price: number;
+  recommendation_reason: string;
+  updated_at: string;
+}
+
+export interface StockRecommendationResponse {
+  category: string;
+  recommendations: StockRecommendation[];
+  updated_at: string;
+}
+
+export const fetchStockRecommendations = async (
+  category: string
+): Promise<StockRecommendationResponse> => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/stock-recommendations/${category}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("추천 종목 데이터 가져오기 실패:", error);
+    throw error;
   }
 };

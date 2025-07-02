@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { StockRecommendation } from "../../types/stock";
+import { StockRecommendation } from "../../utils/stockUtils";
 import { useThemeColors } from "../../theme/colors";
 import {
   getRiskColor,
@@ -20,8 +20,10 @@ const StockCardHeader: React.FC<StockCardHeaderProps> = ({
   onPress,
 }) => {
   const colors = useThemeColors();
-  const isPositive = stock.changePercent >= 0;
-  const riskColors = getRiskColor(stock.riskLevel);
+
+  // API 데이터에는 변화율 정보가 없으므로 기본값 사용
+  const isPositive = true; // 추천 종목이므로 긍정적으로 표시
+  const riskColors = getRiskColor("MEDIUM"); // 기본 위험도
 
   return (
     <TouchableOpacity
@@ -32,20 +34,18 @@ const StockCardHeader: React.FC<StockCardHeaderProps> = ({
       <View style={styles.stockInfo}>
         <View style={styles.stockTitleRow}>
           <Text style={[styles.stockSymbol, { color: colors.textPrimary }]}>
-            {stock.symbol}
+            {stock.ticker}
           </Text>
           <View style={[styles.riskBadge, { backgroundColor: riskColors[0] }]}>
-            <Text style={styles.riskBadgeText}>
-              {getRiskText(stock.riskLevel)}
-            </Text>
+            <Text style={styles.riskBadgeText}>추천</Text>
           </View>
         </View>
         <Text style={[styles.stockName, { color: colors.textSecondary }]}>
-          {stock.name}
+          {stock.company_name}
         </Text>
         <View style={styles.priceRow}>
           <Text style={[styles.currentPrice, { color: colors.textPrimary }]}>
-            ${stock.currentPrice.toFixed(2)}
+            ${stock.current_price.toFixed(2)}
           </Text>
           <View
             style={[
@@ -59,7 +59,7 @@ const StockCardHeader: React.FC<StockCardHeaderProps> = ({
             ]}
           >
             <Ionicons
-              name={isPositive ? "trending-up" : "trending-down"}
+              name="trending-up"
               size={14}
               color={getChangeColor(isPositive, colors.isDarkMode)}
             />
@@ -69,8 +69,7 @@ const StockCardHeader: React.FC<StockCardHeaderProps> = ({
                 { color: getChangeColor(isPositive, colors.isDarkMode) },
               ]}
             >
-              {isPositive ? "+" : ""}
-              {stock.changePercent.toFixed(2)}%
+              추천
             </Text>
           </View>
         </View>

@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { StockRecommendation } from "../../types/stock";
+import { StockRecommendation } from "../../utils/stockUtils";
 import { useThemeColors } from "../../theme/colors";
 import StockCardHeader from "./StockCardHeader";
 import QuickStats from "./QuickStats";
