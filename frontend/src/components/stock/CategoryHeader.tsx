@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   modernHeaderGradient: {
-    padding: 24,
+    padding: 20,
     position: "relative",
   },
   headerTopRow: {
@@ -143,8 +143,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.25)",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 25,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.3)",

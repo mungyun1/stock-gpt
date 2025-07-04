@@ -6,6 +6,7 @@ import { useThemeColors } from "../../theme/colors";
 import CategoryHeader from "./CategoryHeader";
 import StockCard from "./StockCard";
 import { Ionicons } from "@expo/vector-icons";
+import ErrorView from "./ErrorView";
 
 interface StockListProps {
   category: StockCategory;
@@ -16,6 +17,7 @@ interface StockListProps {
   onBackPress: () => void;
   onStockPress: (stock: StockRecommendation) => void;
   updatedAt?: string;
+  onRetry?: () => void;
 }
 
 const StockList: React.FC<StockListProps> = ({
@@ -27,17 +29,18 @@ const StockList: React.FC<StockListProps> = ({
   onBackPress,
   onStockPress,
   updatedAt,
+  onRetry,
 }) => {
   const colors = useThemeColors();
 
-  if (loading) {
-    return (
-      <View style={styles.stocksContainer}>
-        <CategoryHeader
-          category={category}
-          stockCount={recommendations.length}
-          onBackPress={onBackPress}
-        />
+  return (
+    <View style={styles.stocksContainer}>
+      <CategoryHeader
+        category={category}
+        stockCount={recommendations.length}
+        onBackPress={onBackPress}
+      />
+      {loading ? (
         <View
           style={[
             styles.loadingContainer,
@@ -49,75 +52,49 @@ const StockList: React.FC<StockListProps> = ({
             추천 종목을 분석하고 있습니다...
           </Text>
         </View>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.stocksContainer}>
-        <CategoryHeader
-          category={category}
-          stockCount={0}
-          onBackPress={onBackPress}
+      ) : error ? (
+        <ErrorView
+          error={error}
+          onRetry={onRetry || (() => {})}
+          onBack={onBackPress}
         />
-        <View
-          style={[
-            styles.errorContainer,
-            { backgroundColor: colors.background },
-          ]}
-        >
-          <Text style={[styles.errorText, { color: colors.textSecondary }]}>
-            {error}
-          </Text>
-          <Text style={[styles.errorSubText, { color: colors.textSecondary }]}>
-            잠시 후 다시 시도해주세요.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.stocksContainer}>
-      <CategoryHeader
-        category={category}
-        stockCount={recommendations.length}
-        onBackPress={onBackPress}
-      />
-
-      {updatedAt && (
-        <View
-          style={[
-            styles.updateNotice,
-            {
-              backgroundColor: colors.cardBackground,
-              borderColor: colors.primary,
-            },
-          ]}
-        >
-          <Ionicons
-            name="calendar"
-            size={16}
-            color={colors.primary}
-            style={{ marginRight: 6 }}
-          />
-          <Text style={[styles.updateText, { color: colors.primary }]}>
-            <Text style={{ fontWeight: "bold" }}>업데이트</Text>: {updatedAt}
-          </Text>
-        </View>
+      ) : (
+        <>
+          {updatedAt && (
+            <View
+              style={[
+                styles.updateNotice,
+                {
+                  backgroundColor: colors.cardBackground,
+                  borderColor: colors.primary,
+                },
+              ]}
+            >
+              <Ionicons
+                name="calendar"
+                size={16}
+                color={colors.primary}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={[styles.updateText, { color: colors.primary }]}>
+                {" "}
+                <Text style={{ fontWeight: "bold" }}>업데이트</Text>:{" "}
+                {updatedAt}
+              </Text>
+            </View>
+          )}
+          <View style={styles.stocksList}>
+            {recommendations.map((stock) => (
+              <StockCard
+                key={stock.ticker}
+                stock={stock}
+                isExpanded={expandedStock === stock.ticker}
+                onPress={onStockPress}
+              />
+            ))}
+          </View>
+        </>
       )}
-
-      <View style={styles.stocksList}>
-        {recommendations.map((stock) => (
-          <StockCard
-            key={stock.ticker}
-            stock={stock}
-            isExpanded={expandedStock === stock.ticker}
-            onPress={onStockPress}
-          />
-        ))}
-      </View>
     </View>
   );
 };

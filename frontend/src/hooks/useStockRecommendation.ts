@@ -67,19 +67,10 @@ export const useStockRecommendation = () => {
     }
   };
 
-  const handleBuyPress = (stock: StockRecommendation) => {
-    Alert.alert(
-      "매수 확인",
-      `${stock.company_name} (${stock.ticker}) 주식을 매수하시겠습니까?`,
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "매수",
-          onPress: () =>
-            Alert.alert("매수 완료", "주식 매수가 완료되었습니다."),
-        },
-      ]
-    );
+  const handleRetry = () => {
+    if (selectedCategory) {
+      fetchRecommendations(selectedCategory.id);
+    }
   };
 
   return {
@@ -92,6 +83,6 @@ export const useStockRecommendation = () => {
     handleCategorySelect,
     handleBackToCategories,
     handleStockPress,
-    handleBuyPress,
+    handleRetry,
   };
 };

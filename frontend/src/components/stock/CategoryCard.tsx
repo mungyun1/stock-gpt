@@ -1,6 +1,5 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
 import { StockCategory } from "../../types/stock";
 import { useThemeColors } from "../../theme/colors";
 import { getCategoryColor } from "../../utils/stockUtils";
@@ -58,11 +57,6 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, onPress }) => {
             {category.description || "맞춤 추천을 받아보세요"}
           </Text>
         </View>
-        <MaterialIcons
-          name="keyboard-arrow-right"
-          size={24}
-          color={colors.textSecondary}
-        />
       </View>
     </TouchableOpacity>
   );

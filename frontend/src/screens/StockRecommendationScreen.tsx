@@ -5,7 +5,7 @@ import { mockStockCategories } from "../data/mockStockData";
 import { useThemeColors } from "../theme/colors";
 import { useStockRecommendation } from "../hooks/useStockRecommendation";
 import CommonHeader from "../components/CommonHeader";
-import { CategoryCard, StockList } from "../components/stock";
+import { CategoryCard, StockList, ErrorView } from "../components/stock";
 
 const StockRecommendationScreen: React.FC = () => {
   const colors = useThemeColors();
@@ -19,6 +19,7 @@ const StockRecommendationScreen: React.FC = () => {
     handleCategorySelect,
     handleBackToCategories,
     handleStockPress,
+    handleRetry,
   } = useStockRecommendation();
 
   const formatDate = (dateStr: string | null) => {
@@ -69,6 +70,12 @@ const StockRecommendationScreen: React.FC = () => {
                 ))}
               </View>
             </View>
+          ) : error ? (
+            <ErrorView
+              error={error}
+              onRetry={handleRetry}
+              onBack={handleBackToCategories}
+            />
           ) : (
             <StockList
               category={selectedCategory}
@@ -79,6 +86,7 @@ const StockRecommendationScreen: React.FC = () => {
               onBackPress={handleBackToCategories}
               onStockPress={handleStockPress}
               updatedAt={formatDate(updatedAt)}
+              onRetry={handleRetry}
             />
           )}
         </ScrollView>
@@ -115,6 +123,13 @@ const styles = StyleSheet.create({
   sectionContent: {
     paddingHorizontal: 20,
     gap: 2,
+  },
+
+  headerSubtitle: {
+    fontSize: 13,
+    fontFamily: "Pretendard-Regular",
+    marginTop: 4,
+    opacity: 0.8,
   },
 });
 

@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { StockRecommendation } from "../../utils/stockUtils";
 import { useThemeColors } from "../../theme/colors";
+import FinancialMetrics from "./FinancialMetrics";
 
 interface StockExpandedContentProps {
   stock: StockRecommendation;
@@ -51,21 +52,11 @@ const StockExpandedContent: React.FC<StockExpandedContentProps> = ({
               {stock.ticker}
             </Text>
           </View>
-          <View style={styles.priceItem}>
-            <Text style={[styles.priceLabel, { color: colors.textSecondary }]}>
-              업데이트
-            </Text>
-            <Text
-              style={[
-                styles.priceValue,
-                { color: colors.isDarkMode ? "#4ADE80" : "#16A34A" },
-              ]}
-            >
-              {new Date(stock.updated_at).toLocaleDateString("ko-KR")}
-            </Text>
-          </View>
         </View>
       </View>
+
+      {/* 재무 지표 섹션 */}
+      <FinancialMetrics stock={stock} />
 
       <View style={styles.recommendationContainer}>
         <LinearGradient

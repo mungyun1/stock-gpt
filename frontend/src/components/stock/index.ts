@@ -5,3 +5,5 @@ export { default as StockCardHeader } from "./StockCardHeader";
 export { default as StockExpandedContent } from "./StockExpandedContent";
 export { default as StockList } from "./StockList";
 export { default as QuickStats } from "./QuickStats";
+export { default as FinancialMetrics } from "./FinancialMetrics";
+export { default as ErrorView } from "./ErrorView";

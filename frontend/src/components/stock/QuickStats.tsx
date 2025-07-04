@@ -16,14 +16,6 @@ const QuickStats: React.FC<QuickStatsProps> = ({ stock }) => {
     >
       <View style={styles.quickStat}>
         <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>
-          업데이트
-        </Text>
-        <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>
-          {new Date(stock.updated_at).toLocaleDateString("ko-KR")}
-        </Text>
-      </View>
-      <View style={styles.quickStat}>
-        <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>
           추천 이유
         </Text>
         <Text
@@ -35,14 +27,6 @@ const QuickStats: React.FC<QuickStatsProps> = ({ stock }) => {
           {stock.recommendation_reason.length > 20
             ? stock.recommendation_reason.substring(0, 20) + "..."
             : stock.recommendation_reason}
-        </Text>
-      </View>
-      <View style={styles.quickStat}>
-        <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>
-          현재가
-        </Text>
-        <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>
-          ${stock.current_price.toFixed(2)}
         </Text>
       </View>
     </View>

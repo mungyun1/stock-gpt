@@ -4,7 +4,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "tech",
     name: "기술주",
-    description: "혁신적인 기술과 높은 성장성",
+    description: "AI와 혁신 기술로 미래를 선도하는 기업들",
     icon: "💻",
     stocks: [
       {
@@ -92,7 +92,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "growth",
     name: "성장주",
-    description: "높은 성장률과 혁신적인 비즈니스 모델",
+    description: "폭발적 성장 잠재력과 시장 확장성을 가진 기업",
     icon: "📈",
     stocks: [
       {
@@ -180,7 +180,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "value",
     name: "가치주",
-    description: "안정적인 재무와 합리적인 밸류에이션",
+    description: "저평가된 우량 기업, 안전한 장기 투자처",
     icon: "💰",
     stocks: [
       {
@@ -268,7 +268,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "dividend",
     name: "배당주",
-    description: "안정적인 배당과 현금흐름",
+    description: "꾸준한 배당 수익으로 안정적인 현금 창출",
     icon: "💵",
     stocks: [
       {
@@ -356,7 +356,7 @@ export const mockStockCategories: StockCategory[] = [
   {
     id: "defensive",
     name: "방어주",
-    description: "경기 침체기에도 안정적인 수익",
+    description: "경기 불황에도 흔들리지 않는 안전한 피난처",
     icon: "🛡️",
     stocks: [
       {
