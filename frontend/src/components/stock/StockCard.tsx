@@ -5,7 +5,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { StockRecommendation } from "../../utils/stockUtils";
 import { useThemeColors } from "../../theme/colors";
 import StockCardHeader from "./StockCardHeader";
-import QuickStats from "./QuickStats";
 import StockExpandedContent from "./StockExpandedContent";
 
 interface StockCardProps {
@@ -39,8 +38,6 @@ const StockCard: React.FC<StockCardProps> = ({
         ]}
       >
         <StockCardHeader stock={stock} onPress={onPress} />
-
-        {!isExpanded && <QuickStats stock={stock} />}
 
         {!isExpanded && (
           <TouchableOpacity

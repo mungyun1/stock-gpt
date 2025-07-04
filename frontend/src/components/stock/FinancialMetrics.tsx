@@ -93,7 +93,7 @@ const FinancialMetrics: React.FC<FinancialMetricsProps> = ({ stock }) => {
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
           주요 지표
         </Text>
-        <View style={styles.metricsGrid}>
+        <View style={styles.metricsList}>
           <MetricRow label="PER" value={stock.per_ratio} type="ratio" />
           <MetricRow label="PEG" value={stock.peg_ratio} type="ratio" />
           <MetricRow label="ROE" value={stock.roe} type="percentage" />
@@ -120,7 +120,7 @@ const FinancialMetrics: React.FC<FinancialMetricsProps> = ({ stock }) => {
         <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
           투자 지표
         </Text>
-        <View style={styles.metricsGrid}>
+        <View style={styles.metricsList}>
           <MetricRow
             label="목표가"
             value={stock.target_price}
@@ -316,6 +316,10 @@ const styles = StyleSheet.create({
   tagText: {
     fontSize: 12,
     fontFamily: "Pretendard-Medium",
+  },
+  metricsList: {
+    flexDirection: "column",
+    gap: 10,
   },
 });
 

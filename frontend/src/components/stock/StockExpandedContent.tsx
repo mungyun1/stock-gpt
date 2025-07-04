@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { StockRecommendation } from "../../utils/stockUtils";
 import { useThemeColors } from "../../theme/colors";
 import FinancialMetrics from "./FinancialMetrics";
+import MarkdownRenderer from "../MarkdownRenderer";
 
 interface StockExpandedContentProps {
   stock: StockRecommendation;
@@ -78,11 +79,8 @@ const StockExpandedContent: React.FC<StockExpandedContentProps> = ({
               AI 추천 이유
             </Text>
           </View>
-          <Text
-            style={[styles.recommendationText, { color: colors.textSecondary }]}
-          >
-            {stock.recommendation_reason}
-          </Text>
+          {/* 마크다운 렌더러로 교체 */}
+          <MarkdownRenderer content={stock.recommendation_reason} />
         </LinearGradient>
       </View>
 
@@ -144,7 +142,7 @@ const styles = StyleSheet.create({
   },
   recommendationGradient: {
     borderRadius: 16,
-    padding: 20,
+    padding: 12,
   },
   recommendationHeader: {
     flexDirection: "row",

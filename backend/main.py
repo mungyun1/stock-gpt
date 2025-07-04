@@ -616,27 +616,131 @@ def get_analyst_rating(category: str, per_ratio: float) -> str:
             return "HOLD"
 
 def get_analysis_reason(ticker: str, stock_info: dict, category: str) -> str:
-    """종목별 투자 분석 이유 생성 (실제 데이터 기반)"""
+    """종목별 투자 분석 이유 생성 (실제 데이터 기반 전문 분석)"""
     company_name = stock_info.get("longName", ticker)
     sector = stock_info.get("industry", "N/A")
     current_price = stock_info.get("currentPrice", 0)
     market_cap = stock_info.get("marketCap", 0)
+    per_ratio = stock_info.get("trailingPE")
+    roe = stock_info.get("returnOnEquity")
+    debt_to_equity = stock_info.get("debtToEquity")
+    eps = stock_info.get("trailingEps")
     
     # 시가총액을 조 단위로 변환
     market_cap_trillion = market_cap / 1_000_000_000_000 if market_cap > 0 else 0
     
-    # 실제 데이터 기반 분석
-    base_reason = f"{company_name}은 {sector} 분야의 대표 기업으로, 현재 주가 ${current_price:.2f}, 시가총액 {market_cap_trillion:.1f}조 달러 규모입니다."
+    # 재무 지표 분석
+    per_analysis = ""
+    if per_ratio and per_ratio != "N/A":
+        if per_ratio < 15:
+            per_analysis = f"PER {per_ratio:.2f}로 업계 평균 대비 저평가되어 있어 가치 투자 매력도가 높습니다."
+        elif per_ratio < 25:
+            per_analysis = f"PER {per_ratio:.2f}로 합리적인 밸류에이션을 보여주고 있습니다."
+        else:
+            per_analysis = f"PER {per_ratio:.2f}로 성장 기대감이 반영된 프리미엄 밸류에이션입니다."
     
-    category_reasons = {
-        "tech": f" AI와 기술 혁신을 선도하는 기업으로, 높은 성장성과 시장 지배력을 보유하고 있어 기술 투자에 적합합니다.",
-        "growth": f" 강력한 성장 잠재력과 시장 확장성을 가진 기업으로, 장기적인 가치 상승이 기대됩니다.",
-        "value": f" 안정적인 재무구조와 합리적인 밸류에이션을 가진 우량주로, 안전한 가치 투자처입니다.",
-        "dividend": f" 꾸준한 배당 지급 이력과 안정적인 현금흐름을 가진 기업으로, 배당 수익을 추구하는 투자자에게 적합합니다.",
-        "defensive": f" 경기 침체기에도 안정적인 수익을 유지할 수 있는 방어적 특성을 가진 필수 소비재 기업입니다."
+    roe_analysis = ""
+    if roe and roe != "N/A":
+        roe_value = float(roe) if isinstance(roe, str) else roe
+        if roe_value > 0.20:
+            roe_analysis = f"ROE {roe_value:.3f}로 우수한 자본 효율성을 보여주며,"
+        elif roe_value > 0.15:
+            roe_analysis = f"ROE {roe_value:.3f}로 양호한 수익성을 유지하고 있으며,"
+        else:
+            roe_analysis = f"ROE {roe_value:.3f}로 개선 여지가 있으나,"
+    
+    # EPS 분석
+    eps_analysis = ""
+    if eps and eps != "N/A":
+        eps_value = float(eps) if isinstance(eps, str) else eps
+        if eps_value > 0:
+            eps_analysis = f"EPS ${eps_value:.2f}로 안정적인 수익성을 보여주고 있습니다."
+        else:
+            eps_analysis = "현재 적자 상태이나 성장 투자 단계로 평가됩니다."
+    
+    # 부채비율 분석
+    debt_analysis = ""
+    if debt_to_equity and debt_to_equity != "N/A":
+        debt_value = float(debt_to_equity) if isinstance(debt_to_equity, str) else debt_to_equity
+        if debt_value < 0.5:
+            debt_analysis = f"부채비율 {debt_value:.2f}로 매우 건전한 재무구조를 보유하고 있습니다."
+        elif debt_value < 1.0:
+            debt_analysis = f"부채비율 {debt_value:.2f}로 적정 수준의 레버리지를 활용하고 있습니다."
+        else:
+            debt_analysis = f"부채비율 {debt_value:.2f}로 높은 레버리지이나 성장 투자 단계로 평가됩니다."
+    
+    # 52주 고저가 분석
+    week_52_low = stock_info.get("fiftyTwoWeekLow", current_price * 0.7)
+    week_52_high = stock_info.get("fiftyTwoWeekHigh", current_price * 1.3)
+    price_position_analysis = ""
+    if isinstance(week_52_low, (int, float)) and isinstance(week_52_high, (int, float)) and week_52_high > week_52_low:
+        position = ((current_price - week_52_low) / (week_52_high - week_52_low)) * 100
+        if position < 30:
+            price_position_analysis = f"52주 대비 {position:.1f}% 위치로 저점 근처에서 매수 기회로 평가됩니다."
+        elif position < 70:
+            price_position_analysis = f"52주 대비 {position:.1f}% 위치로 적정 수준의 밸류에이션을 보여줍니다."
+        else:
+            price_position_analysis = f"52주 대비 {position:.1f}% 위치로 고점 근처이나 성장 기대감이 반영된 수준입니다."
+    
+    # 카테고리별 전문 분석
+    category_analysis = {
+        "tech": f"""
+🔹 **기술 혁신 리더십**: {sector} 분야의 선도 기업으로 AI, 클라우드, 디지털 전환 등 핵심 기술 트렌드에서 강력한 경쟁 우위를 보유
+🔹 **시장 지배력**: {market_cap_trillion:.1f}조 달러 규모의 시가총액으로 업계 표준을 주도하는 시장 지배력 확보
+🔹 **성장 동력**: 글로벌 디지털화 가속화로 인한 수요 증가와 신기술 도입으로 지속적인 성장 기대
+🔹 **재무 건전성**: {roe_analysis} {eps_analysis} {debt_analysis}
+🔹 **매수 타이밍**: {price_position_analysis}""",
+        
+        "growth": f"""
+🔹 **고성장 잠재력**: 혁신적인 비즈니스 모델과 시장 확장성으로 연평균 15-25% 수준의 고성장 기대
+🔹 **시장 기회**: 신흥 시장 진출과 신제품 출시를 통한 매출 다각화로 성장 동력 확보
+🔹 **경쟁 우위**: 독창적인 기술과 브랜드 파워로 시장 진입 장벽 구축
+🔹 **재무 효율성**: {roe_analysis} {eps_analysis} {debt_analysis}
+🔹 **매수 타이밍**: {price_position_analysis}""",
+        
+        "value": f"""
+🔹 **저평가 매력**: {per_analysis} 내재가치 대비 할인된 주가로 안전마진 확보
+🔹 **안정적 수익**: 성숙한 시장에서 안정적인 현금흐름과 꾸준한 수익성 유지
+🔹 **배당 안정성**: 꾸준한 배당 지급과 배당 성장으로 소득 투자자에게 매력적
+🔹 **재무 건전성**: {roe_analysis} {eps_analysis} {debt_analysis}
+🔹 **매수 타이밍**: {price_position_analysis}""",
+        
+        "dividend": f"""
+🔹 **배당 안정성**: 연 3-5% 수준의 안정적인 배당 수익률과 꾸준한 배당 성장
+🔹 **현금흐름**: 안정적인 영업 현금흐름으로 배당 지급 능력 확보
+🔹 **배당 성장**: 매년 배당 인상으로 인플레이션 헤지 효과 제공
+🔹 **재무 건전성**: {roe_analysis} {eps_analysis} {debt_analysis}
+🔹 **매수 타이밍**: {price_position_analysis}""",
+        
+        "defensive": f"""
+🔹 **경기 방어력**: 필수 소비재 특성으로 경기 침체기에도 안정적인 수요 유지
+🔹 **브랜드 파워**: 강력한 브랜드 인지도와 고객 충성도로 가격 결정력 보유
+🔹 **안정적 수익**: 반복적 소비 패턴으로 예측 가능한 매출과 수익 구조
+🔹 **재무 안정성**: {roe_analysis} {eps_analysis} {debt_analysis}
+🔹 **매수 타이밍**: {price_position_analysis}"""
     }
     
-    return base_reason + category_reasons.get(category, " 장기 투자에 적합한 우량 기업입니다.")
+    # 기본 분석
+    base_analysis = f"""
+📊 **{company_name} ({ticker}) 투자 분석**
+
+💰 **기본 정보**
+• 현재가: ${current_price:.2f}
+• 시가총액: {market_cap_trillion:.1f}조 달러
+• 섹터: {sector}
+• 52주 범위: ${week_52_low:.2f} - ${week_52_high:.2f}
+
+{category_analysis.get(category, f"""
+🔹 **종합 평가**: {company_name}은 {sector} 분야의 우량 기업으로, 안정적인 재무구조와 성장 잠재력을 보유한 장기 투자 대상입니다.
+🔹 **투자 포인트**: {roe_analysis} {per_analysis} {eps_analysis} {debt_analysis}
+🔹 **매수 타이밍**: {price_position_analysis}
+""")}
+
+🎯 **투자 전략**: {category} 투자 스타일에 적합한 포트폴리오 구성 요소로 권장
+⚠️ **투자 위험**: 투자 결정 전 개인적인 재무 상황과 투자 목표를 고려하시기 바랍니다.
+"""
+    
+    return base_analysis.strip()
 
 def generate_stock_recommendations(category: str) -> list:
     """실제 Finnhub API 데이터만 사용하여 추천 종목 생성"""
@@ -661,48 +765,74 @@ def generate_stock_recommendations(category: str) -> list:
                 
                 # 재무 지표 추출 (실제 값 또는 합리적인 기본값)
                 per_ratio = stock_info.get("trailingPE")
-                if per_ratio == "N/A" or per_ratio is None:
-                    # 카테고리별 기본 PER 추정
+                if per_ratio == "N/A" or per_ratio is None or per_ratio == 0:
                     default_per = {"tech": 35, "growth": 40, "value": 18, "dividend": 20, "defensive": 22}
                     per_ratio = default_per.get(category, 25)
-                
+                else:
+                    per_ratio = float(per_ratio)
+
                 eps = stock_info.get("trailingEps")
                 if eps == "N/A" or eps is None:
                     eps = current_price / per_ratio if current_price > 0 and per_ratio > 0 else 0
-                
+                else:
+                    eps = float(eps)
+
+                # ROE
                 roe = stock_info.get("returnOnEquity")
                 if roe == "N/A" or roe is None:
-                    # 카테고리별 기본 ROE 추정 (백분율)
-                    default_roe = {"tech": 25, "growth": 20, "value": 15, "dividend": 18, "defensive": 16}
-                    roe = default_roe.get(category, 18)
+                    default_roe = {"tech": 0.25, "growth": 0.20, "value": 0.15, "dividend": 0.18, "defensive": 0.16}
+                    roe = default_roe.get(category, 0.18)
                 else:
-                    roe = float(roe) * 100  # 백분율로 변환
-                
-                debt_to_equity = stock_info.get("debtToEquity")
-                if debt_to_equity == "N/A" or debt_to_equity is None:
-                    # 카테고리별 기본 부채비율 추정
-                    default_debt = {"tech": 0.3, "growth": 0.4, "value": 0.6, "dividend": 0.5, "defensive": 0.7}
-                    debt_to_equity = default_debt.get(category, 0.5)
-                
+                    roe = float(roe)
+                    if roe > 1:
+                        roe = roe / 100
+
+                # 순이익률
+                profit_margin = stock_info.get("profitMargin")
+                if profit_margin == "N/A" or profit_margin is None:
+                    profit_margin = 0.15 + (roe - 0.15) * 0.5
+                else:
+                    profit_margin = float(profit_margin)
+                    if profit_margin > 1:
+                        profit_margin = profit_margin / 100
+
+                # 매출 성장률
+                revenue_growth = stock_info.get("revenueGrowth")
+                if revenue_growth == "N/A" or revenue_growth is None:
+                    revenue_growth = 0.08 if category in ["tech", "growth"] else 0.03
+                else:
+                    revenue_growth = float(revenue_growth)
+                    if revenue_growth > 1:
+                        revenue_growth = revenue_growth / 100
+
+                # 배당수익률
+                dividend_yield = stock_info.get("dividendYield")
+                if dividend_yield == "N/A" or dividend_yield is None:
+                    dividend_yield = 0.02 if category in ["dividend", "defensive"] else 0.005
+                else:
+                    dividend_yield = float(dividend_yield)
+                    if dividend_yield > 1:
+                        dividend_yield = dividend_yield / 100
+
                 # 목표가 계산
                 target_price = get_target_price_estimate(current_price, category)
-                
+
                 # 애널리스트 등급 추정
                 analyst_rating = get_analyst_rating(category, per_ratio)
-                
+
                 # 위험도 등급
                 risk_level = get_risk_level(category)
-                
+
                 # 52주 고저가 정보
                 week_52_low = stock_info.get("fiftyTwoWeekLow", current_price * 0.7)
                 week_52_high = stock_info.get("fiftyTwoWeekHigh", current_price * 1.3)
-                
+
                 # 52주 위치 계산
                 if isinstance(week_52_low, (int, float)) and isinstance(week_52_high, (int, float)) and week_52_high > week_52_low:
                     week_52_position = round(((current_price - week_52_low) / (week_52_high - week_52_low)) * 100, 1)
                 else:
                     week_52_position = 50.0
-                
+
                 # 추천 종목 데이터 구성
                 recommendation = {
                     "ticker": ticker,
@@ -712,9 +842,9 @@ def generate_stock_recommendations(category: str) -> list:
                     "peg_ratio": per_ratio / 15.0 if per_ratio > 0 else 1.5,  # PEG 추정
                     "roe": roe,
                     "debt_to_equity": debt_to_equity,
-                    "profit_margin": 15.0 + (roe - 15) * 0.5,  # ROE 기반 순이익률 추정
-                    "revenue_growth": 8.0 if category in ["tech", "growth"] else 3.0,  # 카테고리별 성장률
-                    "dividend_yield": 2.0 if category in ["dividend", "defensive"] else 0.5,
+                    "profit_margin": profit_margin,
+                    "revenue_growth": revenue_growth,
+                    "dividend_yield": dividend_yield,
                     "market_cap": market_cap,
                     "eps": eps,
                     "target_price": target_price,
